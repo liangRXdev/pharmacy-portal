@@ -16,6 +16,7 @@
 | 臨床計算 | [KDIGO AKI Staging](https://liangrxdev.github.io/kdigo-aki-stage/) | KDIGO 急性腎損傷分期 |
 | 藥物安全 | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | 多藥 ADR 嫌疑排序（ROR/PRR） |
 | 政府資料庫 | [TFDA Drug Info Search](https://liangrxdev.github.io/TFDA-drug-info-search/) | TFDA 藥品許可證查詢 |
+| 政府資料庫 | [TFDA Drug Shortage Dashboard](https://liangrxdev.github.io/TFDA-drug-shortage-dashboard/) | TFDA 藥品供應(缺藥替代)資訊儀表板 |
 | 政府資料庫 | [TFDA Drug Recall Dashboard](https://liangrxdev.github.io/TFDA-drug-recall-dashboard/) | TFDA 藥品回收儀表板 |
 | 院內工具 | IV 共用管路相容性查詢 | Y-site 相容性比對（GAS 院內） |
 | 院內工具 | 抗血栓藥品停復藥建議 | 圍術期停藥/復藥時程（GAS 院內） |

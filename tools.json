@@ -76,7 +76,7 @@
       "id": "tfda-drug-search",
       "name": "TFDA Drug Info Search",
       "nameZh": "TFDA藥品資訊查詢",
-      "description": "查詢台灣TFDA核准藥品許可證、適應症與成分資訊",
+      "description": "查詢台灣TFDA藥品適應症、成分、外觀、仿單及健保規範",
       "category": "gov",
       "url": "https://liangrxdev.github.io/TFDA-drug-info-search/",
       "repo": "https://github.com/liangRXdev/TFDA-drug-info-search",
@@ -87,7 +87,7 @@
         {
       "id": "tfda-drug-shortage-dashboard",
       "name": "TFDA Drug Shortage Dashboard",
-      "nameZh": "TFDA藥品缺藥替代資訊儀表板",
+      "nameZh": "TFDA藥品缺藥替代儀表板",
       "description": "視覺化呈現TFDA缺藥平台替代藥品資訊",
       "category": "gov",
       "url": "https://liangrxdev.github.io/TFDA-drug-shortage-dashboard/",

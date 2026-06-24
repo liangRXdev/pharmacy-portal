@@ -1,0 +1,8 @@
+# 不對外提供的檔案（僅供 repo / 建置用，不上架為靜態資產）
+# 注意：index.html 與 tools.json 必須上架（前端會 fetch tools.json），勿加入。
+# Cloudflare 已自動排除 _headers / _redirects，此處再明列非必要檔。
+README.md
+wrangler.jsonc
+.gitignore
+.gitattributes
+.assetsignore

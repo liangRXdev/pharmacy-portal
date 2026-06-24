@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "title": "臨床藥學工具集",
+    "subtitle": "澄清綜合醫院藥劑部",
+    "author": "Liang",
+    "lastUpdated": "2025-06-24"
+  },
+  "categories": [
+    { "id": "clinical", "label": "臨床計算", "icon": "💊" },
+    { "id": "adr",      "label": "藥物安全", "icon": "⚠️" },
+    { "id": "gov",      "label": "政府資料庫", "icon": "🏛️" },
+    { "id": "internal", "label": "院內工具", "icon": "🏥" }
+  ],
+  "tools": [
+    {
+      "id": "faers-suspect-ranker",
+      "name": "FAERS Suspect Ranker",
+      "nameZh": "多藥ADR嫌疑排序",
+      "description": "以ROR/PRR不相稱性統計，反向分析多重用藥中最可能致ADR之藥品",
+      "category": "adr",
+      "url": "https://liangrxdev.github.io/faers-suspect-ranker/",
+      "repo": "https://github.com/liangRXdev/faers-suspect-ranker",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["pharmacovigilance", "OpenFDA", "disproportionality"]
+    },
+    {
+      "id": "bicarb-dosing-calc",
+      "name": "Bicarb Dosing Calculator",
+      "nameZh": "碳酸氫鈉劑量計算",
+      "description": "依體重與目標pH計算NaHCO₃補充劑量",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/bicarb-dosing-calc/",
+      "repo": "https://github.com/liangRXdev/bicarb-dosing-calc",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["ICU", "acid-base", "dosing"]
+    },
+    {
+      "id": "opioid-converter",
+      "name": "Opioid Converter",
+      "nameZh": "鴉片類藥物換算",
+      "description": "台灣院內常用鴉片類藥物等效劑量換算（含口服/注射途徑）",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/opioid-converter-zh/",
+      "repo": "https://github.com/liangRXdev/opioid-converter-zh",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["pain", "equianalgesic", "conversion"]
+    },
+    {
+      "id": "dopamine-dose-calc",
+      "name": "Dopamine Dose Calculator",
+      "nameZh": "Dopamine 劑量計算",
+      "description": "依體重與目標劑量範圍計算Dopamine滴速",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/dopamine-dose-calculator/",
+      "repo": "https://github.com/liangRXdev/dopamine-dose-calculator",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["ICU", "vasopressor", "infusion"]
+    },
+    {
+      "id": "kdigo-aki-stage",
+      "name": "KDIGO AKI Staging",
+      "nameZh": "KDIGO急性腎損傷分期",
+      "description": "依KDIGO指引判定AKI分期與處置建議",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/kdigo-aki-stage/",
+      "repo": "https://github.com/liangRXdev/kdigo-aki-stage",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["nephrology", "AKI", "KDIGO"]
+    },
+    {
+      "id": "tfda-drug-search",
+      "name": "TFDA Drug Info Search",
+      "nameZh": "TFDA藥品資訊查詢",
+      "description": "查詢台灣TFDA核准藥品許可證、適應症與成分資訊",
+      "category": "gov",
+      "url": "https://liangrxdev.github.io/TFDA-drug-info-search/",
+      "repo": "https://github.com/liangRXdev/TFDA-drug-info-search",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["TFDA", "license", "drug-info"]
+    },
+    {
+      "id": "tfda-recall-dashboard",
+      "name": "TFDA Drug Recall Dashboard",
+      "nameZh": "TFDA藥品回收儀表板",
+      "description": "視覺化呈現TFDA藥品回收公告趨勢與分類統計",
+      "category": "gov",
+      "url": "https://liangrxdev.github.io/TFDA-drug-recall-dashboard/",
+      "repo": "https://github.com/liangRXdev/TFDA-drug-recall-dashboard",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["TFDA", "recall", "dashboard"]
+    },
+    {
+      "id": "iv-compatibility",
+      "name": "IV Compatibility Checker",
+      "nameZh": "IV共用管路相容性查詢",
+      "description": "查詢注射藥品Y-site相容性，支援多藥同時比對",
+      "category": "internal",
+      "url": null,
+      "repo": null,
+      "platform": "gas",
+      "status": "active",
+      "tags": ["IV", "Y-site", "compatibility"]
+    },
+    {
+      "id": "antithrombotic-periop",
+      "name": "Antithrombotic Periop Advisor",
+      "nameZh": "抗血栓藥品停復藥建議",
+      "description": "依手術風險與藥品種類提供圍術期停藥/復藥時程建議",
+      "category": "internal",
+      "url": null,
+      "repo": null,
+      "platform": "gas",
+      "status": "active",
+      "tags": ["perioperative", "antithrombotic", "bridging"]
+    },
+    {
+      "id": "drug-appearance",
+      "name": "Drug Appearance Lookup",
+      "nameZh": "院內藥品外觀仿單查詢",
+      "description": "以藥品代碼或名稱查詢院內藥品外觀圖片與仿單連結",
+      "category": "internal",
+      "url": null,
+      "repo": null,
+      "platform": "gas",
+      "status": "active",
+      "tags": ["identification", "appearance", "formulary"]
+    },
+    {
+      "id": "multilingual-rx",
+      "name": "Multilingual Rx Translator",
+      "nameZh": "用藥多語言轉換工具",
+      "description": "將中文用藥指示轉譯為英/越/印/泰等多語版本",
+      "category": "internal",
+      "url": null,
+      "repo": null,
+      "platform": "gas",
+      "status": "active",
+      "tags": ["translation", "patient-education", "multilingual"]
+    }
+  ]
+}

@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>個人臨床藥學工具集 — 梁哲嘉藥師</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -28,6 +27,7 @@
     * { box-sizing: border-box; }
 
     body {
+      margin: 0;
       background: var(--bg-primary);
       font-family: 'Noto Sans TC', sans-serif;
       color: var(--text-primary);
@@ -313,7 +313,7 @@
         renderTools();
       })
       .catch(err => {
-        toolsGrid.innerHTML = '<div class="empty-state">載入失敗：' + escapeHtml(err.message) + '</div>';
+        toolsGrid.replaceChildren(el('div', 'empty-state', '載入失敗：' + err.message));
       });
 
     // ── Render categories ──
@@ -355,60 +355,91 @@
         return haystack.includes(query);
       });
 
-      statsBar.innerHTML = '顯示 <strong>' + filtered.length + '</strong> / <strong>' + allTools.length + '</strong> 項工具';
+      statsBar.replaceChildren(
+        document.createTextNode('顯示 '),
+        el('strong', null, String(filtered.length)),
+        document.createTextNode(' / '),
+        el('strong', null, String(allTools.length)),
+        document.createTextNode(' 項工具')
+      );
 
       if (filtered.length === 0) {
-        toolsGrid.innerHTML = '<div class="empty-state">找不到符合條件的工具</div>';
+        toolsGrid.replaceChildren(el('div', 'empty-state', '找不到符合條件的工具'));
         return;
       }
 
-      toolsGrid.innerHTML = '';
-      filtered.forEach(t => {
-        const card = document.createElement('div');
-        card.className = 'tool-card';
+      toolsGrid.replaceChildren(...filtered.map(buildCard));
+    }
 
-        // Platform badge
-        const isGH = t.platform === 'github-pages';
-        const badgeClass = isGH ? 'gh' : 'gas';
-        const badgeText = isGH ? 'GitHub Pages' : 'GAS 院內';
+    // ── Build a single tool card (pure DOM) ──
+    function buildCard(t) {
+      const card = el('div', 'tool-card');
 
-        // Status badge
-        let statusBadge = '';
-        if (t.status === 'maintenance') {
-          statusBadge = '<span class="badge-platform badge-status-maintenance">維護中</span> ';
-        }
+      // ── Top row: title + badges ──
+      const top = el('div', 'card-top');
+      const titleWrap = el('div');
+      titleWrap.appendChild(el('div', 'name-zh', t.nameZh));
+      titleWrap.appendChild(el('div', 'name-en', t.name));
+      top.appendChild(titleWrap);
 
-        // Links
-        let linksHtml = '';
-        if (t.url) {
-          linksHtml += '<a href="' + escapeAttr(t.url) + '" target="_blank" rel="noopener">開啟工具 →</a>';
-        }
-        if (t.repo) {
-          linksHtml += '<a href="' + escapeAttr(t.repo) + '" target="_blank" rel="noopener">GitHub</a>';
-        }
-        if (!t.url && !t.repo) {
-          linksHtml = '<span style="font-size:0.75rem;color:var(--text-muted);">院內網路存取</span>';
-        }
+      const badges = el('div');
+      if (t.status === 'maintenance') {
+        badges.appendChild(el('span', 'badge-platform badge-status-maintenance', '維護中'));
+        badges.appendChild(document.createTextNode(' '));
+      }
+      const isGH = t.platform === 'github-pages';
+      badges.appendChild(el('span', 'badge-platform ' + (isGH ? 'gh' : 'gas'),
+        isGH ? 'GitHub Pages' : 'GAS 院內'));
+      top.appendChild(badges);
+      card.appendChild(top);
 
-        // Tags
-        const tagsHtml = t.tags.map(tag => '<span class="tag-chip">' + escapeHtml(tag) + '</span>').join('');
+      // ── Description ──
+      card.appendChild(el('div', 'desc', t.description));
 
-        card.innerHTML =
-          '<div class="card-top">' +
-            '<div>' +
-              '<div class="name-zh">' + escapeHtml(t.nameZh) + '</div>' +
-              '<div class="name-en">' + escapeHtml(t.name) + '</div>' +
-            '</div>' +
-            '<div>' + statusBadge + '<span class="badge-platform ' + badgeClass + '">' + badgeText + '</span></div>' +
-          '</div>' +
-          '<div class="desc">' + escapeHtml(t.description) + '</div>' +
-          '<div class="tag-row">' + tagsHtml + '</div>' +
-          '<div class="card-footer-row">' +
-            '<div class="card-links">' + linksHtml + '</div>' +
-          '</div>';
+      // ── Tags ──
+      const tagRow = el('div', 'tag-row');
+      t.tags.forEach(tag => tagRow.appendChild(el('span', 'tag-chip', tag)));
+      card.appendChild(tagRow);
 
-        toolsGrid.appendChild(card);
-      });
+      // ── Footer: links ──
+      const footer = el('div', 'card-footer-row');
+      const links = el('div', 'card-links');
+      const urlLink = toolLink(t.url, '開啟工具 →');
+      const repoLink = toolLink(t.repo, 'GitHub');
+      if (urlLink) links.appendChild(urlLink);
+      if (repoLink) links.appendChild(repoLink);
+      if (!urlLink && !repoLink) {
+        const note = el('span', null, '院內網路存取');
+        note.style.fontSize = '0.75rem';
+        note.style.color = 'var(--text-muted)';
+        links.appendChild(note);
+      }
+      footer.appendChild(links);
+      card.appendChild(footer);
+
+      return card;
+    }
+
+    // ── Anchor builder; returns null for missing/unsafe URLs ──
+    function toolLink(url, label) {
+      const href = safeUrl(url);
+      if (!href) return null;
+      const a = el('a', null, label);
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      return a;
+    }
+
+    // ── Allow only http(s); blocks javascript:/data: URLs ──
+    function safeUrl(url) {
+      if (!url) return null;
+      try {
+        const u = new URL(url, location.href);
+        return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : null;
+      } catch (e) {
+        return null;
+      }
     }
 
     // ── Search ──
@@ -418,14 +449,12 @@
       debounceTimer = setTimeout(renderTools, 200);
     });
 
-    // ── Escape helpers ──
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
-    function escapeAttr(str) {
-      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // ── DOM helper: create element with optional class + text ──
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = text;
+      return node;
     }
   })();
   </script>

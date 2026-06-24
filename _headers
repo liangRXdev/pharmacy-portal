@@ -1,0 +1,13 @@
+# Cloudflare 安全標頭設定（Workers Static Assets / Pages 皆讀此檔）
+# 注意：CSP 的 script-src 採用「行內 <script> 內容」的 sha256 hash。
+#       只要 index.html 內的 <script> 區塊有任何變動，hash 就會失效、
+#       導致整段 JS 被 CSP 擋下。修改後務必重新產生：
+#       node -e "const fs=require('fs'),c=require('crypto');const m=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/);console.log('sha256-'+c.createHash('sha256').update(m[1],'utf8').digest('base64'))"
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'sha256-eQxLxVVRsLsYnlhANck+dpau1IVndzYGWt04RY7b7z0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=63072000

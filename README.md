@@ -32,8 +32,9 @@ pharmacy-portal/
 ```
 
 - **新增工具**：編輯 `tools.json`，push 到 `main`，Cloudflare 自動部署
-- **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、Bootstrap 5、Noto Sans TC
+- **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、純手寫 CSS、Noto Sans TC
 - **部署平台**：Cloudflare Workers（Git 整合自動部署）
+- **安全標頭**：`_headers` 提供 CSP + HSTS 等；CSP 的 `script-src` 用行內 script 的 sha256 hash（改 `index.html` 內 `<script>` 後需重算，指令見 `_headers` 註解）
 
 ## tools.json Schema
 

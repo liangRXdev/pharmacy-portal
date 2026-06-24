@@ -1,0 +1,2 @@
+# 全 repo 統一 LF；保護 index.html 的 CSP script-src sha256 hash 不因 CRLF 失效
+* text=auto eol=lf

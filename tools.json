@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-06-26"
+    "lastUpdated": "2026-06-27"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -83,6 +83,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["oxygen", "cylinder", "respiratory"]
+    },
+    {
+      "id": "dx-ebm-calc",
+      "name": "Diagnostic Test EBM Calculator",
+      "nameZh": "診斷檢驗EBM計算器",
+      "description": "由2×2或sens/spec算概似比(LR)，貝氏更新前後機率，互動Fagan nomogram，附常見檢驗LR速查庫",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/dx-ebm-calc/",
+      "repo": "https://github.com/liangRXdev/dx-ebm-calc",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["EBM", "likelihood-ratio", "diagnosis", "nomogram"]
     },
     {
       "id": "tfda-drug-search",

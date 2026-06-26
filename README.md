@@ -28,9 +28,18 @@
 
 ```
 pharmacy-portal/
-├── index.html    ← 入口頁（純靜態，fetch tools.json 動態渲染）
-└── tools.json    ← 工具清單（單一來源，新增工具僅需編輯此檔）
+├── index.html              ← 入口頁（純靜態，fetch tools.json 動態渲染）
+├── tools.json              ← 工具清單（單一來源，新增工具僅需編輯此檔）
+├── manifest.webmanifest    ← PWA 安裝資訊（名稱「藥學工具」、圖示、主題色）
+├── sw.js                   ← Service Worker（僅快取入口 shell）
+└── icons/                  ← App 圖示（Rx Tool，綠底 #2E4F4F）
 ```
+
+### PWA（可安裝）
+
+- 支援「加入主畫面」安裝為獨立 App，全螢幕 `standalone` 顯示
+- Service Worker **僅快取入口 shell**（`index.html` / `tools.json` / 圖示）：離線可開工具總匯與搜尋；個別工具（GitHub Pages / GAS 院內）仍需連線
+- 改 `index.html` 內 `<script>` 後，除了重算 CSP hash，毋須改 `sw.js`；但若新增 shell 檔案需同步更新 `sw.js` 的 `SHELL` 清單與 `CACHE` 版本號
 
 - **新增工具**：編輯 `tools.json`，push 到 `main`，Cloudflare 自動部署
 - **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、純手寫 CSS、Noto Sans TC

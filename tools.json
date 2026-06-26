@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2025-06-24"
+    "lastUpdated": "2026-06-26"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -71,6 +71,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["nephrology", "AKI", "KDIGO"]
+    },
+    {
+      "id": "o2-cylinder-timer",
+      "name": "O₂ Cylinder Timer",
+      "nameZh": "氧氣小鋼瓶可用時間估算",
+      "description": "估算攜帶式醫用氧氣小鋼瓶（3.4 L）於設定流速下的可用時間",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/o2-cylinder-timer/",
+      "repo": "https://github.com/liangRXdev/o2-cylinder-timer",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["oxygen", "cylinder", "respiratory"]
     },
     {
       "id": "tfda-drug-search",

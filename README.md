@@ -16,6 +16,7 @@
 | 臨床計算 | [KDIGO AKI Staging](https://liangrxdev.github.io/kdigo-aki-stage/) | KDIGO 急性腎損傷分期 |
 | 臨床計算 | [O₂ Cylinder Timer](https://liangrxdev.github.io/o2-cylinder-timer/) | 攜帶式醫用氧氣小鋼瓶（3.4 L）可用時間估算 |
 | 臨床計算 | [Diagnostic Test EBM Calculator](https://liangrxdev.github.io/dx-ebm-calc/) | 概似比(LR)/貝氏更新/Fagan nomogram + 檢驗 LR 速查庫 |
+| 臨床計算 | [Treatment Effect EBM Calculator](https://liangrxdev.github.io/tx-ebm-calc/) | ARR/NNT/NNH/RRR + 白話說明 + 百人效益圖 (Cates plot) |
 | 藥物安全 | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | 多藥 ADR 嫌疑排序（ROR/PRR） |
 | 政府資料庫 | [TFDA Drug Info Search](https://liangrxdev.github.io/TFDA-drug-info-search/) | TFDA 藥品許可證查詢 |
 | 政府資料庫 | [TFDA Drug Shortage Dashboard](https://liangrxdev.github.io/TFDA-drug-shortage-dashboard/) | TFDA 藥品供應(缺藥替代)資訊儀表板 |

@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-06-27"
+    "lastUpdated": "2026-06-29"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -95,6 +95,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["EBM", "likelihood-ratio", "diagnosis", "nomogram"]
+    },
+    {
+      "id": "tx-ebm-calc",
+      "name": "Treatment Effect EBM Calculator",
+      "nameZh": "治療效益EBM計算器",
+      "description": "由四宮格/百分比/人年算ARR、NNT/NNH、RRR/RR/OR，產生白話說明與百人效益圖(Cates plot)，可列印總表",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/tx-ebm-calc/",
+      "repo": "https://github.com/liangRXdev/tx-ebm-calc",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["EBM", "NNT", "absolute-risk-reduction", "Cates-plot"]
     },
     {
       "id": "tfda-drug-search",

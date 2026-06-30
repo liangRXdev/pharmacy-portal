@@ -1,0 +1,29 @@
+# 個人臨床藥學工具集 — robots.txt
+# 一律允許索引；明確歡迎搜尋與生成式 AI 爬蟲（GEO）
+
+User-agent: *
+Allow: /
+
+# 生成式 AI / 答案引擎（明示放行，便於日後若需選擇性調整）
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://pharmacy-portal.liangrxdev.workers.dev/sitemap.xml

@@ -43,7 +43,8 @@ pharmacy-portal/
 - Service Worker **僅快取入口 shell**（`index.html` / `tools.json` / 圖示）：離線可開工具總匯與搜尋；個別工具（GitHub Pages / GAS 院內）仍需連線
 - 改 `index.html` 內 `<script>` 後，除了重算 CSP hash，毋須改 `sw.js`；但若新增 shell 檔案需同步更新 `sw.js` 的 `SHELL` 清單與 `CACHE` 版本號
 
-- **新增工具**：編輯 `tools.json`，push 到 `main`，Cloudflare 自動部署
+- **新增工具**：編輯 `tools.json` →（如需更新 SEO）執行 `node tools/gen-seo.js` 重生 JSON-LD 與 `sitemap.xml` → push 到 `main`，Cloudflare 自動部署
+- **SEO/GEO**：`<head>` 含 description／canonical／Open Graph／Twitter Card 與 JSON-LD（`WebSite`+`Person`+`ItemList`）；`robots.txt`（明示放行 AI 爬蟲）＋ `sitemap.xml`。JSON-LD 為 `application/ld+json` data block，不受 CSP `script-src` 管，毋須重算 hash
 - **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、純手寫 CSS、Noto Sans TC
 - **部署平台**：Cloudflare Workers（Git 整合自動部署）
 - **安全標頭**：`_headers` 提供 CSP + HSTS 等；CSP 的 `script-src` 用行內 script 的 sha256 hash（改 `index.html` 內 `<script>` 後需重算，指令見 `_headers` 註解）

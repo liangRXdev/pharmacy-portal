@@ -6,3 +6,4 @@ wrangler.jsonc
 .gitignore
 .gitattributes
 .assetsignore
+tools

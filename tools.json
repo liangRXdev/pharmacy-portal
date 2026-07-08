@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-06-29"
+    "lastUpdated": "2026-07-08"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -107,6 +107,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["EBM", "NNT", "absolute-risk-reduction", "Cates-plot"]
+    },
+    {
+      "id": "vanco-auc-calc",
+      "name": "Vancomycin AUC Calculator",
+      "nameZh": "萬古黴素AUC劑量計算",
+      "description": "AUC導向萬古黴素劑量：經驗起始、雙點反算(Sawchuk-Zaske)、Bayesian AUC(Goti 2018二室先驗)，含資料信心分層與安全閘門，純前端",
+      "category": "clinical",
+      "url": "https://liangrxdev.github.io/vanco-auc-calc/",
+      "repo": "https://github.com/liangRXdev/vanco-auc-calc",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["ICU", "TDM", "pharmacokinetics", "AUC", "Bayesian"]
     },
     {
       "id": "tfda-drug-search",

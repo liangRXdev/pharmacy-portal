@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-07-08"
+    "lastUpdated": "2026-08-04"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -155,6 +155,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["TFDA", "recall", "dashboard"]
+    },
+    {
+      "id": "tfda-drug-id-quiz",
+      "name": "TFDA Drug Identification Quiz",
+      "nameZh": "藥品辨識王",
+      "description": "以TFDA藥品外觀資料集出題，三種難度練習藥品外觀辨識，另有不計分閃卡模式",
+      "category": "gov",
+      "url": "https://liangrxdev.github.io/TFDA-drug-id-quiz/",
+      "repo": "https://github.com/liangRXdev/TFDA-drug-id-quiz",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["TFDA", "education", "drug-identification"]
     },
     {
       "id": "iv-compatibility",

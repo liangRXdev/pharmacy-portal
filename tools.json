@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-08-04"
+    "lastUpdated": "2026-08-13"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -132,7 +132,19 @@
       "status": "active",
       "tags": ["TFDA", "license", "drug-info"]
     },
-        {
+    {
+      "id": "pill-detective-tw",
+      "name": "Pill Detective TW",
+      "nameZh": "藥丸偵探",
+      "description": "依刻字、顏色、形狀與刻痕搜尋TFDA藥品外觀資料，縮小候選清單供人工比對確認",
+      "category": "gov",
+      "url": "https://liangrxdev.github.io/pill-detective-tw/",
+      "repo": "https://github.com/liangRXdev/pill-detective-tw",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["TFDA", "pill-identification", "appearance"]
+    },
+    {
       "id": "tfda-drug-shortage-dashboard",
       "name": "TFDA Drug Shortage Dashboard",
       "nameZh": "TFDA藥品缺藥替代儀表板",

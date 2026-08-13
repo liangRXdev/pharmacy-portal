@@ -3,7 +3,7 @@
  * 產出：
  *   1) sitemap.xml（入口頁，lastmod 取自 tools.json meta.lastUpdated）
  *   2) index.html 內 <!-- SEO-JSONLD:START --> … <!-- SEO-JSONLD:END --> 之間的
- *      JSON-LD（WebSite + Person + ItemList 15 工具）
+ *      JSON-LD（WebSite + Person + ItemList 工具清單）
  *
  * 用法：新增/修改 tools.json 後執行 `node tools/gen-seo.js`，再 commit、push。
  * 注意：本腳本只改動 JSON-LD 標記區間（type="application/ld+json"，CSP 不管 data block），

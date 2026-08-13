@@ -2,7 +2,7 @@
  * 僅快取入口 shell（index.html / tools.json / manifest / 圖示）。
  * 外部工具（github.io、GAS）與 Google Fonts 不攔截，一律走網路。
  */
-const CACHE = 'pharmacy-portal-v2';
+const CACHE = 'pharmacy-portal-v3';
 const SHELL = [
   './',
   'index.html',

@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-08-13"
+    "lastUpdated": "2026-09-08"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -23,6 +23,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["pharmacovigilance", "OpenFDA", "disproportionality"]
+    },
+    {
+      "id": "medication-safety-minesweeper",
+      "name": "Medication Safety Minesweeper",
+      "nameZh": "用藥安全踩雷",
+      "description": "以合成病例訓練辨識具臨床可行動性的用藥問題：於藥品配對矩陣插旗標記交互作用，並勾選整體處方層級問題，送出後計分並提供逐題解析",
+      "category": "adr",
+      "url": "https://medication-safety-minesweeper.pages.dev/",
+      "repo": "https://github.com/liangRXdev/Medication-Safety-Minesweeper",
+      "platform": "cloudflare-pages",
+      "status": "active",
+      "tags": ["education", "DRP", "drug-interaction", "training"]
     },
     {
       "id": "bicarb-dosing-calc",

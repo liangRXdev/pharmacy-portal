@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-09-08"
+    "lastUpdated": "2026-09-16"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -191,6 +191,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["TFDA", "education", "drug-identification"]
+    },
+    {
+      "id": "nhi-drug-price-history",
+      "name": "NHI Drug Price History",
+      "nameZh": "健保藥價歷史查詢",
+      "description": "以健保代號查詢1995年開辦至今的完整支付價歷史、調價幅度與終止/暫停狀態；另有預告中心列出已公告未生效的異動，以及最多4個代號的並列比較",
+      "category": "gov",
+      "url": "https://liangrxdev.github.io/NHI-drug-price-history/",
+      "repo": "https://github.com/liangRXdev/NHI-drug-price-history",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["NHI", "drug-price", "reimbursement", "price-history"]
     },
     {
       "id": "iv-compatibility",

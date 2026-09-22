@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-09-16"
+    "lastUpdated": "2026-09-22"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -203,6 +203,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["NHI", "drug-price", "reimbursement", "price-history"]
+    },
+    {
+      "id": "taiwan-clinical-trial-radar",
+      "name": "Taiwan Clinical Trial Radar",
+      "nameZh": "台灣藥品臨床試驗檢索",
+      "description": "檢索TFDA公開的藥品臨床試驗審查紀錄，可依期別、規模、申請者、收案人數與期間篩選；同一天多筆不一致時並列全部紀錄不挑一筆，並揭露寫法近似的計畫書編號。不提供招募狀態",
+      "category": "gov",
+      "url": "https://taiwan-clinical-trial-radar.pages.dev/",
+      "repo": "https://github.com/liangRXdev/Taiwan-Clinical-Trial-Radar",
+      "platform": "cloudflare-pages",
+      "status": "active",
+      "tags": ["TFDA", "clinical-trial", "opendata", "search"]
     },
     {
       "id": "iv-compatibility",

@@ -2,7 +2,8 @@
  * 僅快取入口 shell（index.html / tools.json / manifest / 圖示）。
  * 外部工具（github.io、GAS）與 Google Fonts 不攔截，一律走網路。
  */
-const CACHE = 'pharmacy-portal-v6';
+const PREFIX = 'pharmacy-portal-';
+const CACHE = `${PREFIX}v6`;
 const SHELL = [
   './',
   'index.html',
@@ -23,7 +24,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      // 只汰換**本工具自己的** cache。
+      // 本站目前獨佔 workers.dev 子網域，刪不到別人；前綴守衛是為了「哪天同源再放東西」
+      // 時不必回頭想起這件事——CacheStorage 是 origin 共用的。
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k)),
+      ))
       .then(() => self.clients.claim())
   );
 });

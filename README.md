@@ -48,6 +48,7 @@ pharmacy-portal/
 - **SEO/GEO**：`<head>` 含 description／canonical／Open Graph／Twitter Card 與 JSON-LD（`WebSite`+`Person`+`ItemList`）；`robots.txt`（明示放行 AI 爬蟲）＋ `sitemap.xml`。JSON-LD 為 `application/ld+json` data block，不受 CSP `script-src` 管，毋須重算 hash
 - **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、純手寫 CSS、Noto Sans TC
 - **部署平台**：Cloudflare Workers（Git 整合自動部署）
+- **SW 快取越界檢查**：`node tools/check-sw-cache-scope.js`。CacheStorage 是 origin 共用的，`liangrxdev.github.io` 上十幾個工具的 SW 若沒有前綴守衛，更新時會刪光鄰居的離線快取——每個 repo 的測試都只看得見自己，這個不變量只有跨 repo 掃描守得住。**新增 PWA 工具時跑一次**（腳本自動發現 `projects/` 下所有 `sw.js`，不必登錄清單）
 - **安全標頭**：`_headers` 提供 CSP + HSTS 等；CSP 的 `script-src` 用行內 script 的 sha256 hash（改 `index.html` 內 `<script>` 後需重算，指令見 `_headers` 註解）
 
 ## tools.json Schema

@@ -2,6 +2,7 @@
 # 注意：index.html 與 tools.json 必須上架（前端會 fetch tools.json），勿加入。
 # Cloudflare 已自動排除 _headers / _redirects，此處再明列非必要檔。
 README.md
+README.zh-TW.md
 wrangler.jsonc
 .gitignore
 .gitattributes

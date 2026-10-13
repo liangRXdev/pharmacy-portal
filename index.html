@@ -47,9 +47,10 @@
       --danger: #C0392B;
       --success: #27AE60;
       --warning: #E67E22;
+      --warn-text: #8A4B08;   /* 警示「文字」專用；--warning 當文字僅 2.85:1 */
       --radius-card: 8px;
       --radius-input: 4px;
-      --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
+      --shadow-card: 0 1px 2px rgba(44,44,44,.04), 0 4px 12px rgba(44,44,44,.04);
       --transition: 0.2s ease;
     }
 
@@ -75,7 +76,7 @@
     }
     .site-header .subtitle {
       font-size: 0.85rem;
-      color: var(--text-muted);
+      color: var(--text-primary);   /* 米色裸底上 muted 僅 4.26:1 */
     }
 
     /* ── Search ── */
@@ -153,8 +154,6 @@
     }
     .tool-card:hover {
       border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
     .tool-card .card-top {
       display: flex;
@@ -242,7 +241,7 @@
       padding: 0.1rem 0.4rem;
       border-radius: 8px;
       background: var(--accent-light);
-      color: var(--accent);
+      color: var(--accent-hover);   /* accent 在淡色底僅 4.36:1 */
       font-family: 'JetBrains Mono', monospace;
     }
 
@@ -250,7 +249,7 @@
     .empty-state {
       text-align: center;
       padding: 3rem 1rem;
-      color: var(--text-muted);
+      color: var(--text-primary);
       grid-column: 1 / -1;
     }
 
@@ -260,7 +259,7 @@
       bottom: 12px;
       right: 12px;
       font-size: 0.65rem;
-      color: var(--text-muted);
+      color: var(--text-primary);
       font-family: 'JetBrains Mono', monospace;
       background: rgba(245,240,232,0.9);
       padding: 0.15rem 0.5rem;
@@ -271,11 +270,11 @@
     .stats-bar {
       text-align: center;
       font-size: 0.75rem;
-      color: var(--text-muted);
+      color: var(--text-primary);
       padding: 0.25rem;
     }
     .stats-bar strong {
-      color: var(--accent);
+      color: var(--accent-hover);   /* accent 在米色底僅 4.26:1 */
       font-family: 'JetBrains Mono', monospace;
     }
 
@@ -283,7 +282,7 @@
     .loading {
       text-align: center;
       padding: 4rem 1rem;
-      color: var(--text-muted);
+      color: var(--text-primary);
     }
 
     /* ── Responsive ── */
@@ -291,8 +290,19 @@
       .site-header h1 { font-size: 1.3rem; }
       .tools-grid { grid-template-columns: 1fr; }
     }
+    /* ── 互動質感：只做狀態回饋，不移動版面 ── */
+    button:active { transform: scale(.98); }
+    :is(button, input, select, a, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; transform: none !important; }
+    }
+    /* 使用者要求高對比：只覆寫 token（--border 白 4.92:1／米色 4.34:1） */
+    @media (prefers-contrast: more) {
+      :root {
+        --border:     #7A6F60;
+        --text-muted: var(--text-primary);
+        --accent:     var(--accent-hover);
+      }
     }
   </style>
 </head>

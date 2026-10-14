@@ -3,10 +3,11 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-09-22"
+    "lastUpdated": "2026-10-14"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
+    { "id": "ebm",      "label": "實證教學", "icon": "📚" },
     { "id": "adr",      "label": "藥物安全", "icon": "⚠️" },
     { "id": "gov",      "label": "政府資料庫", "icon": "🏛️" },
     { "id": "internal", "label": "院內工具", "icon": "🏥" }
@@ -119,6 +120,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["EBM", "NNT", "absolute-risk-reduction", "Cates-plot"]
+    },
+    {
+      "id": "critical-appraisal-training-tw",
+      "name": "Critical Appraisal Training",
+      "nameZh": "實證評讀練習室",
+      "description": "以 CASP、RoB 2 與 GRADE 練習文獻評讀，支援學員作答匯出、參考答案比對與指導者批改；範例文獻為虛構教學素材",
+      "category": "ebm",
+      "url": "https://liangrxdev.github.io/critical-appraisal-training-tw/",
+      "repo": "https://github.com/liangRXdev/critical-appraisal-training-tw",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["EBM", "CASP", "RoB 2", "GRADE", "education"]
     },
     {
       "id": "vanco-auc-calc",

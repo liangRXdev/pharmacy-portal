@@ -19,6 +19,7 @@ A portal for clinical pharmacy tools, collecting my own clinical calculators, dr
 | Clinical calculation | [O₂ Cylinder Timer](https://liangrxdev.github.io/o2-cylinder-timer/) | Remaining-time estimate for a portable medical oxygen cylinder (3.4 L) |
 | Clinical calculation | [Diagnostic Test EBM Calculator](https://liangrxdev.github.io/dx-ebm-calc/) | Likelihood ratio (LR) / Bayesian update / Fagan nomogram + test LR library |
 | Clinical calculation | [Treatment Effect EBM Calculator](https://liangrxdev.github.io/tx-ebm-calc/) | ARR/NNT/NNH/RRR + plain-language explanation + 100-person Cates plot |
+| EBM education | [Critical Appraisal Training](https://liangrxdev.github.io/critical-appraisal-training-tw/) | CASP, RoB 2 and GRADE appraisal practice, answer comparison and instructor review |
 | Drug safety | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | Ranks suspect drugs for an ADR in polypharmacy (ROR/PRR) |
 | Government data | [TFDA Drug Info Search](https://liangrxdev.github.io/TFDA-drug-info-search/) | TFDA drug license lookup |
 | Government data | [Pill Detective TW](https://liangrxdev.github.io/pill-detective-tw/) | Search TFDA drug appearance data by imprint, color, shape and score line |

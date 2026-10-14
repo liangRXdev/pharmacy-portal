@@ -19,6 +19,7 @@
 | 臨床計算 | [O₂ Cylinder Timer](https://liangrxdev.github.io/o2-cylinder-timer/) | 攜帶式醫用氧氣小鋼瓶（3.4 L）可用時間估算 |
 | 臨床計算 | [Diagnostic Test EBM Calculator](https://liangrxdev.github.io/dx-ebm-calc/) | 概似比(LR)/貝氏更新/Fagan nomogram + 檢驗 LR 速查庫 |
 | 臨床計算 | [Treatment Effect EBM Calculator](https://liangrxdev.github.io/tx-ebm-calc/) | ARR/NNT/NNH/RRR + 白話說明 + 百人效益圖 (Cates plot) |
+| 實證教學 | [實證評讀練習室](https://liangrxdev.github.io/critical-appraisal-training-tw/) | CASP、RoB 2、GRADE 評讀練習、答案比對與指導者批改 |
 | 藥物安全 | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | 多藥 ADR 嫌疑排序（ROR/PRR） |
 | 政府資料庫 | [TFDA Drug Info Search](https://liangrxdev.github.io/TFDA-drug-info-search/) | TFDA 藥品許可證查詢 |
 | 政府資料庫 | [Pill Detective TW](https://liangrxdev.github.io/pill-detective-tw/) | 依刻字、顏色、形狀與刻痕搜尋 TFDA 藥品外觀資料 |

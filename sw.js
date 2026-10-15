@@ -3,7 +3,7 @@
  * 外部工具（github.io、GAS）與 Google Fonts 不攔截，一律走網路。
  */
 const PREFIX = 'pharmacy-portal-';
-const CACHE = `${PREFIX}v8`;
+const CACHE = `${PREFIX}v9`;
 const SHELL = [
   './',
   'index.html',

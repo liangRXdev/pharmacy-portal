@@ -1,11 +1,11 @@
 /* gen-seo.js — 由 tools.json 產生 SEO/GEO 靜態內容
  *
  * 產出：
- *   1) sitemap.xml（入口頁，lastmod 取自 tools.json meta.lastUpdated）
- *   2) index.html 內 <!-- SEO-JSONLD:START --> … <!-- SEO-JSONLD:END --> 之間的
+ *   1) public/sitemap.xml（入口頁，lastmod 取自 public/tools.json meta.lastUpdated）
+ *   2) public/index.html 內 <!-- SEO-JSONLD:START --> … <!-- SEO-JSONLD:END --> 之間的
  *      JSON-LD（WebSite + Person + ItemList 工具清單）
  *
- * 用法：新增/修改 tools.json 後執行 `node tools/gen-seo.js`，再 commit、push。
+ * 用法：新增/修改 public/tools.json 後執行 `node tools/gen-seo.js`，再 commit、push。
  * 注意：本腳本只改動 JSON-LD 標記區間（type="application/ld+json"，CSP 不管 data block），
  *       不會碰既有可執行 <script>，故毋須重算 _headers 的 CSP sha256 hash。
  */
@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..', 'public');
 const BASE = 'https://pharmacy-portal.liangrxdev.workers.dev/';
 const d = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools.json'), 'utf8'));
 

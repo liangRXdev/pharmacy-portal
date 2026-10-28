@@ -96,7 +96,6 @@
       min-height: 44px;
     }
     .search-wrap input:focus {
-      outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-light);
     }
@@ -312,18 +311,19 @@
     <h1>個人臨床藥學工具集</h1>
     <p class="subtitle">梁哲嘉藥師 ── Clinical Pharmacy Toolkit</p>
     <div class="search-wrap">
-      <input type="text" id="searchInput" placeholder="搜尋工具名稱、標籤…" autocomplete="off">
+      <input type="text" id="searchInput" aria-label="搜尋工具" placeholder="搜尋工具名稱、標籤…" autocomplete="off">
     </div>
   </header>
 
-  <nav class="category-bar" id="categoryBar">
+  <nav class="category-bar" id="categoryBar" aria-label="工具分類">
     <!-- rendered by JS -->
   </nav>
 
-  <div class="stats-bar" id="statsBar"></div>
+  <div class="stats-bar" id="statsBar" aria-live="polite"></div>
 
   <main class="tools-grid" id="toolsGrid">
     <div class="loading">載入中…</div>
+    <noscript><div class="empty-state">本頁需啟用 JavaScript 才能載入工具清單。</div></noscript>
   </main>
 
   <div class="version-badge" id="versionBadge">v1.0.0 | 梁哲嘉藥師</div>
@@ -374,6 +374,7 @@
       allBtn.className = 'cat-btn active';
       allBtn.dataset.cat = 'all';
       allBtn.textContent = '全部';
+      allBtn.setAttribute('aria-pressed', 'true');
       categoryBar.appendChild(allBtn);
 
       categories.forEach(cat => {
@@ -381,6 +382,7 @@
         btn.className = 'cat-btn';
         btn.dataset.cat = cat.id;
         btn.textContent = cat.icon + ' ' + cat.label;
+        btn.setAttribute('aria-pressed', 'false');
         categoryBar.appendChild(btn);
       });
 
@@ -388,8 +390,10 @@
         const btn = e.target.closest('.cat-btn');
         if (!btn) return;
         activeCategory = btn.dataset.cat;
-        categoryBar.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        categoryBar.querySelectorAll('.cat-btn').forEach(b => {
+          b.classList.toggle('active', b === btn);
+          b.setAttribute('aria-pressed', String(b === btn));
+        });
         renderTools();
       });
     }
@@ -457,8 +461,8 @@
       // ── Footer: links ──
       const footer = el('div', 'card-footer-row');
       const links = el('div', 'card-links');
-      const urlLink = toolLink(t.url, '開啟工具 →');
-      const repoLink = toolLink(t.repo, 'GitHub');
+      const urlLink = toolLink(t.url, '開啟工具 →', '開啟工具：' + t.nameZh + '（新分頁）');
+      const repoLink = toolLink(t.repo, 'GitHub', 'GitHub：' + t.nameZh + ' 原始碼（新分頁）');
       if (urlLink) links.appendChild(urlLink);
       if (repoLink) links.appendChild(repoLink);
       if (!urlLink && !repoLink) {
@@ -474,10 +478,11 @@
     }
 
     // ── Anchor builder; returns null for missing/unsafe URLs ──
-    function toolLink(url, label) {
+    function toolLink(url, label, ariaLabel) {
       const href = safeUrl(url);
       if (!href) return null;
       const a = el('a', null, label);
+      a.setAttribute('aria-label', ariaLabel);
       a.href = href;
       a.target = '_blank';
       a.rel = 'noopener';

@@ -1,0 +1,50 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: tools.json 可解析、CSP hash 與 _headers 一致
+        run: node tools/check-portal.js
+
+      - name: gen-seo 產出與 commit 一致
+        run: |
+          node tools/gen-seo.js
+          git diff --exit-code -- public/index.html public/sitemap.xml \
+            || { echo '::error::SEO 檔與 tools.json 不同步：請跑 node tools/gen-seo.js 後 commit'; exit 1; }
+
+      - name: shell 檔變動時 sw.js CACHE 必須升版
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "無可比對的 base（$BASE），略過"; exit 0
+          fi
+          changed=$(git diff --name-only "$BASE" HEAD)
+          shell=$(printf '%s\n' "$changed" | grep -E '^public/(index\.html|tools\.json|manifest\.webmanifest|icons/)' || true)
+          [ -z "$shell" ] && { echo 'shell 檔未變動'; exit 0; }
+          cache_of() { grep -oE '^const CACHE = .*' 2>/dev/null; }
+          old=$( (git show "$BASE:public/sw.js" 2>/dev/null || git show "$BASE:sw.js") | cache_of )
+          new=$(cache_of < public/sw.js)
+          echo "shell 變動：$shell"
+          echo "CACHE base: $old"
+          echo "CACHE head: $new"
+          if [ "$old" = "$new" ]; then
+            echo '::error file=public/sw.js::shell 檔有變動但 sw.js 的 CACHE 版本未升'; exit 1
+          fi

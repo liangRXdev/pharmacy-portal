@@ -6,21 +6,23 @@
 
 ## 架構
 
-- `index.html` — 整站唯一頁面，CSS 與 JS 皆行內
-- `tools.json` — 工具清單資料源（分類、URL、狀態、tags），新增工具改這裡
-- `sw.js` — 只快取入口 shell；外部工具（github.io、GAS）與 Google Fonts 一律走網路
-- `_headers` — Cloudflare 安全標頭，含 CSP
+- `public/` — **唯一部署目錄**（`wrangler.jsonc` `assets.directory`，白名單）。對外檔案只能放這裡；repo 根目錄的 `.git/`、`CLAUDE.md`、README、`tools/` 一律不上架
+- `public/index.html` — 整站唯一頁面，CSS 與 JS 皆行內
+- `public/tools.json` — 工具清單資料源（分類、URL、狀態、tags），新增工具改這裡；private repo 的 `repo` 填 null
+- `public/sw.js` — 只快取入口 shell；外部工具（github.io、GAS）與 Google Fonts 一律走網路。導覽一律以 `./` 為 cache key，**勿把 `index.html` 加回 `SHELL`**（線上 307 → `/`，redirected response 會使導覽失敗）
+- `public/_headers` — Cloudflare 安全標頭，含 CSP
 - `tools/gen-seo.js` — 由 tools.json 產生 SEO 檔案
+- `tools/check-portal.js` + `.github/workflows/check.yml` — CI 守下列三條規則
 
 ## 三個會咬人的地方
 
-1. **改 `index.html` 的 `<script>` 內容 → 必須重算 CSP hash**，否則整段 JS 被擋下。
+1. **改 `public/index.html` 的 `<script>` 內容 → 必須重算 CSP hash**，否則整段 JS 被擋下。
    ```bash
-   node -e "const fs=require('fs'),c=require('crypto');const m=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/);console.log('sha256-'+c.createHash('sha256').update(m[1],'utf8').digest('base64'))"
+   node -e "const fs=require('fs'),c=require('crypto');const m=fs.readFileSync('public/index.html','utf8').match(/<script>([\s\S]*?)<\/script>/);console.log('sha256-'+c.createHash('sha256').update(m[1],'utf8').digest('base64'))"
    ```
-   將結果寫回 `_headers` 的 `script-src`。
+   將結果寫回 `public/_headers` 的 `script-src`。
 
-2. **改動 shell 檔案（index.html / tools.json / manifest / icons）→ 必須升 `sw.js` 的 `CACHE` 版本號**，否則舊快取不會更新。若新增 shell 靜態檔，同步加入 `SHELL` 陣列。
+2. **改動 shell 檔案（index.html / tools.json / manifest / icons）→ 必須升 `public/sw.js` 的 `CACHE` 版本號**，否則舊快取不會更新。若新增 shell 靜態檔，同步加入 `SHELL` 陣列。
 
 3. **新增工具 → 跑 `node tools/gen-seo.js`** 重生 sitemap 與結構化資料，否則 SEO 檔案與 tools.json 不同步。
    JSON-LD 是 `application/ld+json` data block，**不受 CSP `script-src` 管**，改它毋須重算 hash。

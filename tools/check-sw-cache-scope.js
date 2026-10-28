@@ -40,7 +40,7 @@ function discover() {
   const found = [];
   for (const entry of fs.readdirSync(PROJECTS, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-    for (const rel of ['sw.js', path.join('dist', 'sw.js'), path.join('dist', 'service-worker.js')]) {
+    for (const rel of ['sw.js', path.join('public', 'sw.js'), path.join('dist', 'sw.js'), path.join('dist', 'service-worker.js')]) {
       const file = path.join(PROJECTS, entry.name, rel);
       if (fs.existsSync(file)) found.push({ repo: entry.name, rel, file });
     }

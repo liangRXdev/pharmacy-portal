@@ -41,9 +41,29 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
 let browser, checks = 0;
 const pass = name => { checks++; console.log('PASS ' + name); };
+// Test-only counters. No runtime metrics/quality system is added to the application.
+function measureArtFrames() {
+  let calls = 0, triangles = 0;
+  const raf = window.requestAnimationFrame;
+  window.requestAnimationFrame = callback => raf(time => {
+    calls = triangles = 0;
+    callback(time);
+    if (calls) window.artFrame = { calls, triangles };
+  });
+  const prototype = WebGL2RenderingContext.prototype;
+  for (const method of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
+    const original = prototype[method];
+    prototype[method] = function (...args) {
+      calls++;
+      if (args[0] === this.TRIANGLES) triangles += (method.includes('Elements') ? args[1] : args[2]) / 3 * (method.includes('Instanced') ? args.at(-1) : 1);
+      return original.apply(this, args);
+    };
+  }
+}
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}), args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.addInitScript(measureArtFrames);
   await context.addInitScript(() => {
     window.cspViolations = [];
     document.addEventListener('securitypolicyviolation', e => window.cspViolations.push(e.violatedDirective));
@@ -93,6 +113,9 @@ try {
     resolve(colors.size > 5);
   })));
   assert(painted, 'WebGL framebuffer must contain geometry');
+  const desktopArt = await page.evaluate(() => window.artFrame);
+  assert(desktopArt.calls < 100 && desktopArt.triangles > 0);
+  console.log('ART desktop overview', desktopArt);
   pass('desktop actual WebGL world ready, five zones and nonuniform framebuffer');
   const beforeFocus = await page.locator('.room-label').filter({ hasText: '臨床計算' }).boundingBox();
   await page.locator('[data-category="clinical"]').click();
@@ -172,10 +195,24 @@ try {
     const host = document.createElement('div');
     host.style.cssText = 'width:400px;height:300px';
     document.body.append(host);
-    let geometries = 0, materials = 0;
-    const gd = THREE.BoxGeometry.prototype.dispose, md = THREE.MeshStandardMaterial.prototype.dispose;
-    THREE.BoxGeometry.prototype.dispose = function () { geometries++; gd.call(this); };
-    THREE.MeshStandardMaterial.prototype.dispose = function () { materials++; md.call(this); };
+    let geometries = 0, materials = 0, textures = 0;
+    const disposed = new Set(), allocated = new Set();
+    const ga = THREE.BufferGeometry.prototype.setAttribute, mv = THREE.Material.prototype.setValues;
+    const bounds = THREE.InstancedMesh.prototype.computeBoundingSphere, instanceDispose = THREE.InstancedMesh.prototype.dispose;
+    THREE.InstancedMesh.prototype.computeBoundingSphere = function (...args) { allocated.add(this); return bounds.apply(this, args); };
+    THREE.InstancedMesh.prototype.dispose = function () { record(this); instanceDispose.call(this); };
+    const textureUpdate = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(THREE.CanvasTexture.prototype), 'needsUpdate').set;
+    // Track application primitives; renderer-owned background/shadow helpers are released with its context.
+    THREE.BufferGeometry.prototype.setAttribute = function (...args) { if (['BoxGeometry', 'CylinderGeometry', 'SphereGeometry'].includes(this.type)) allocated.add(this); return ga.apply(this, args); };
+    THREE.Material.prototype.setValues = function (...args) { if (this.isMeshStandardMaterial) allocated.add(this); return mv.apply(this, args); };
+    Object.defineProperty(THREE.CanvasTexture.prototype, 'needsUpdate', { configurable: true, set(value) { if (value) allocated.add(this); textureUpdate.call(this, value); } });
+    const allReleased = () => [...allocated].every(resource => disposed.has(resource));
+    let duplicateDisposal = false;
+    const record = resource => { if (disposed.has(resource)) duplicateDisposal = true; disposed.add(resource); };
+    const gd = THREE.BufferGeometry.prototype.dispose, md = THREE.Material.prototype.dispose, td = THREE.CanvasTexture.prototype.dispose;
+    THREE.BufferGeometry.prototype.dispose = function () { record(this); geometries++; gd.call(this); };
+    THREE.Material.prototype.dispose = function () { record(this); materials++; md.call(this); };
+    THREE.CanvasTexture.prototype.dispose = function () { record(this); textures++; td.call(this); };
     const options = { container: host, ...data, onSelectCategory() {}, onSelectTool() {}, onError(error) { throw error; } };
     const results = [];
     try {
@@ -183,19 +220,25 @@ try {
         const world = createWorld(options);
         const gl = host.querySelector('canvas').getContext('webgl2');
         world.destroy();
-        const count = geometries;
+        const count = geometries, materialCount = materials, textureCount = textures;
         world.destroy();
-        results.push(host.children.length === 0 && gl.isContextLost() && geometries === count);
+        results.push(host.children.length === 0 && gl.isContextLost() && geometries === count && materials === materialCount && textures === textureCount && !duplicateDisposal && allReleased());
       }
-      const count = geometries;
+      const count = geometries, materialCount = materials, textureCount = textures;
       const observe = ResizeObserver.prototype.observe;
       ResizeObserver.prototype.observe = () => { throw new Error('simulated setup failure'); };
       try { createWorld(options); results.push(false); }
-      catch { results.push(host.children.length === 0 && geometries > count && geometries === materials); }
+      catch { results.push(host.children.length === 0 && geometries > count && materials > materialCount && textures > textureCount && !duplicateDisposal && allReleased()); }
       finally { ResizeObserver.prototype.observe = observe; }
     } finally {
-      THREE.BoxGeometry.prototype.dispose = gd;
-      THREE.MeshStandardMaterial.prototype.dispose = md;
+      THREE.InstancedMesh.prototype.computeBoundingSphere = bounds;
+      THREE.InstancedMesh.prototype.dispose = instanceDispose;
+      THREE.BufferGeometry.prototype.setAttribute = ga;
+      THREE.Material.prototype.setValues = mv;
+      delete THREE.CanvasTexture.prototype.needsUpdate;
+      THREE.BufferGeometry.prototype.dispose = gd;
+      THREE.Material.prototype.dispose = md;
+      THREE.CanvasTexture.prototype.dispose = td;
       host.remove();
     }
     return results;
@@ -211,6 +254,7 @@ try {
   pass('resource disposal, partial-init cleanup, cached-page restoration and context-loss fallback');
   await fixtureContext.close();
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  await mobile.addInitScript(measureArtFrames);
   const phone = await mobile.newPage();
   const mobileErrors = [];
   phone.on('pageerror', e => mobileErrors.push(e.message));
@@ -218,6 +262,10 @@ try {
   await mobile.addInitScript(() => { window.cspViolations = []; document.addEventListener('securitypolicyviolation', e => window.cspViolations.push(e.violatedDirective)); });
   await phone.goto(base + '/pharmacy/');
   await phone.waitForSelector('html[data-world="ready"]');
+  await phone.waitForFunction(() => window.artFrame?.calls > 0);
+  const mobileArt = await phone.evaluate(() => window.artFrame);
+  assert(mobileArt.calls <= desktopArt.calls && mobileArt.triangles < desktopArt.triangles);
+  console.log('ART mobile overview', mobileArt);
   assert(await phone.locator('#categories').evaluate(el => el.scrollWidth > el.clientWidth));
   assert(await phone.locator('canvas').evaluate(el => el.width / el.clientWidth <= 1.5));
   const canvasBounds = await phone.locator('canvas').boundingBox();

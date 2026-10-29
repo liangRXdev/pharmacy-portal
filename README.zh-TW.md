@@ -88,12 +88,12 @@ pharmacy-portal/
 
 MIT
 
-## 3D 藥局（Phase 1 灰盒）
+## 3D 藥局（Phase 2 美術）
 
 `/pharmacy/` 是獨立的原生 ES module / Three.js 探索頁；首頁維持原有工具入口。
 工具名稱、描述、連結與分類均讀取 `/tools.json`，`scene-layout.js` 僅保存空間配置。
 分類按鈕、工具列表及手機詳情面板不依賴 WebGL；`?no3d=1` 可測試備援。
-場景僅包含五區灰盒、通用工具標記與 OrbitControls，尚未加入 Phase 2 的藥局家具、人物。
+Phase 1 架構保留，場景已加入五區代表性家具、藥架與中央藥師；詳見 [Phase 2 美術與驗證紀錄](docs/phase2-art.md)。
 
 ```bash
 npm ci

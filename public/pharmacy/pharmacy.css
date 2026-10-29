@@ -295,3 +295,21 @@ footer {
     scroll-behavior: auto !important;
   }
 }
+
+/* Small floor plaques; the DOM category bar remains the primary navigation. */
+.zone-label {
+  border: 1px solid #c4c9bd;
+  border-radius: 2px;
+  padding: 3px 7px;
+  background: #fffdf3ed;
+  color: #4c625f;
+  font-size: 11px;
+}
+.zone-label.is-focused {
+  border-color: #527f7b;
+  background: #2e4f4f;
+  color: #fffdf3;
+}
+@media (max-width: 767px) {
+  .zone-label { font-size: 10px; padding: 3px 5px; }
+}

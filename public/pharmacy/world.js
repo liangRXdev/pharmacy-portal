@@ -1,4 +1,6 @@
 import * as THREE from './vendor/three-lite.js';
+import { createPharmacyArt } from './art.js';
+import { PALETTE } from './geometry.js';
 import { resolveLayout, resolveToolPosition } from './scene-layout.js';
 
 export function createWorld({ container, categories, tools, onSelectCategory, onSelectTool, onError }) {
@@ -38,8 +40,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     cleanups.push(() => controls.dispose());
     const objects = [], rooms = new Map(), markers = new Map(), labels = [];
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x9caa9d, 2.6));
-    const light = new THREE.DirectionalLight(0xfff1da, 3);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9caa9d, 2.0));
+    const light = new THREE.DirectionalLight(0xfff7ee, 2.0);
     light.position.set(-5, 15, 8);
     scene.add(light);
     const box = (size, position, color, metadata) => {
@@ -54,15 +56,14 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     };
     const label = (text, position) => {
       const element = document.createElement('span');
-      element.className = 'room-label';
+      element.className = 'room-label zone-label';
       element.textContent = text;
       container.append(element);
       cleanups.push(() => element.remove());
       labels.push({ element, position: new THREE.Vector3(...position) });
     };
-    box([17, .35, 17], [0, -.45, 2], '#d2d5c8');
-    box([2.2, .35, 2.2], [0, -.1, 1], '#f8f3e7');
-    label('Rx · HUB', [0, .4, 1]);
+    box([17, .35, 17], [0, -.05, 2], PALETTE.floor);
+    // The physical Rx sign replaces the sixth overlay label.
     let overflowRoom;
     for (const category of categories) {
       const { position: [x, , z], color } = resolveLayout(category.id);
@@ -75,11 +76,12 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
         console.warn('Unknown scene category; using overflow:', category.id);
         continue;
       }
-      const room = box([3.8, .25, 3.6], [x, 0, z], color, { kind: 'category', categoryId: category.id });
+      const room = box([3.8, .02, 3.6], [x, .135, z], PALETTE.floor, { kind: 'category', categoryId: category.id });
       rooms.set(category.id, room);
-      box([3.8, 1.3, .18], [x, .65, z - 1.7], '#f4eedf');
-      box([.18, .8, 3.6], [x - 1.85, .4, z], '#f4eedf');
-      label(category.label, [x, 1.7, z - 1.3]);
+      box([2.8, .02, .09], [x, .16, z + 1.7], color);
+      // Shared perimeter/dividers are composed by the art module, not five booths.
+      label(category.label, [x, .28, z + 1.75]);
+      labels.at(-1).categoryId = category.id;
     }
     // Unknown categories and undeclared tools share deterministic nonoverlapping slots.
     let overflowIndex = 0;
@@ -90,13 +92,14 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       const index = known ? (indices.get(tool.category) || 0) : overflowIndex++;
       indices.set(tool.category, index + 1);
       const position = resolveToolPosition(known ? tool.category : '__overflow', index);
-      const mesh = box([.52, .7, .35], position, '#365c64', { kind: 'tool', categoryId: tool.category, toolId: tool.id });
+      const mesh = box([.52, .4, .12], position, '#365c64', { kind: 'tool', categoryId: tool.category, toolId: tool.id });
       markers.set(tool.id, mesh);
     }
+    const art = createPharmacyArt(scene, resources, { small: small(), categories, markers });
     const target = new THREE.Vector3();
     function moveTo(center, overview = false) {
       const next = new THREE.Vector3(...center);
-      const offset = overview ? new THREE.Vector3(19, 24, 28) : new THREE.Vector3(7, 9, 11);
+      const offset = overview ? (small() ? new THREE.Vector3(17, 21.4, 25) : new THREE.Vector3(15, 20, 24)) : new THREE.Vector3(7, 9, 11);
       const end = next.clone().add(offset);
       if (reduced.matches) { camera.position.copy(end); controls.target.copy(next); tween = null; }
       else tween = { from: camera.position.clone(), target: controls.target.clone(), end, next, start: performance.now() };
@@ -109,10 +112,15 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     cleanups.push(() => toolLabel.remove());
     const toolNames = new Map(tools.map(tool => [tool.id, tool.nameZh]));
     function updateToolFeedback() {
-      for (const [id, mesh] of markers) mesh.material.emissive.set(id === selectedTool || id === hoveredTool ? '#9b7040' : '#000000');
+      for (const [id, mesh] of markers) {
+        mesh.material.emissive.set(id === selectedTool || id === hoveredTool ? '#5b6245' : '#000000');
+        mesh.scale.setScalar(id === hoveredTool ? 1.06 : 1);
+      }
     }
     function highlight(categoryId, toolId) {
       selectedTool = toolId;
+      for (const label of labels) label.element.classList.toggle('is-focused', label.categoryId === categoryId);
+      art.selectMarker(markers.get(toolId));
       for (const [id, mesh] of rooms) mesh.material.emissive.set(id === categoryId ? '#273d2f' : '#000000');
       updateToolFeedback();
     }
@@ -172,7 +180,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       if (destroyed || paused) return;
       try {
         if (tween) {
-          const t = Math.min(1, (now - tween.start) / 550), eased = 1 - (1 - t) ** 3;
+          const t = Math.min(1, (now - tween.start) / 750);
+          const eased = t < .5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
           camera.position.lerpVectors(tween.from, tween.end, eased);
           controls.target.lerpVectors(tween.target, tween.next, eased);
           if (t === 1) tween = null;
@@ -202,7 +211,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     }
     resize();
     controls.target.set(0, 0, 2);
-    camera.position.set(19, 24, 30);
+    camera.position.set(...(small() ? [17, 21.4, 27] : [15, 20, 26]));
     controls.update();
     renderer.render(scene, camera); // fail initialization before reporting ready
     frame = requestAnimationFrame(render);

@@ -7,7 +7,7 @@
  * 導覽一律以 './'（= 入口頁）為 cache key，/index.html、/?x=1 等變體都共用它。
  */
 const PREFIX = 'pharmacy-portal-';
-const CACHE = `${PREFIX}v11`;
+const CACHE = `${PREFIX}v12`;
 const SHELL = [
   './',
   'tools.json',

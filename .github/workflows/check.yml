@@ -48,3 +48,18 @@ jobs:
           if [ "$old" = "$new" ]; then
             echo '::error file=public/sw.js::shell 檔有變動但 sw.js 的 CACHE 版本未升'; exit 1
           fi
+
+      - name: Install pinned pharmacy test dependencies
+        run: npm ci
+
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Reproducible Three.js vendor
+        run: npm run check:three
+
+      - name: Pharmacy WebGL smoke
+        run: npm run test:pharmacy
+
+      - name: Service worker cache ownership
+        run: node tools/check-sw-cache-scope.js

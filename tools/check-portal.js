@@ -58,4 +58,40 @@ else if (missing.length || stale.length) {
   pass(`CSP script-src 與 ${actual.size} 段行內 script 一致`);
 }
 
+// Pharmacy route: local modules and a separate CSP, without weakening the portal.
+const pharmacy = path.join(PUB, 'pharmacy');
+try {
+  const page = fs.readFileSync(path.join(pharmacy, 'index.html'), 'utf8');
+  const scripts = [...page.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)];
+  if (scripts.length !== 1 || !/\btype\s*=\s*["']module["']/i.test(scripts[0]?.[1] || '')) fail('pharmacy needs one external module entry');
+  for (const match of page.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    if (!/\bsrc=["']\.\/main\.js["']/.test(match[1]) || match[2].trim()) fail('pharmacy inline or non-local script');
+  }
+  if (/type=["']importmap/.test(page)) fail('pharmacy import maps are forbidden');
+  const route = headers.split('/pharmacy/*')[1] || '';
+  const routeBlock = route.split(/\n(?=\/)/)[0];
+  const policy = routeBlock.split('\n').find(line => /^\s*Content-Security-Policy:/i.test(line)) || '';
+  const script = (policy.match(/script-src([^;]*)/) || [])[1] || '';
+  if (routeBlock.indexOf('! Content-Security-Policy') < 0 || routeBlock.indexOf('! Content-Security-Policy') > routeBlock.indexOf('Content-Security-Policy:') || !policy || !script.includes("'self'") || /unsafe-eval|\*/.test(policy) || script.includes("'unsafe-inline'")) fail('pharmacy CSP missing or unsafe');
+  function scan(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) { scan(file); continue; }
+      if (!/\.(js|html)$/.test(file)) continue;
+      const source = fs.readFileSync(file, 'utf8');
+      if (/<script[^>]+src=["']https?:/i.test(source) || /(?:from\s*|import\s*\(?\s*)["']https?:/i.test(source)) fail('external JS in ' + file);
+      if (entry.name.endsWith('.js') && !file.includes(path.sep + 'vendor' + path.sep)) {
+        for (const match of source.matchAll(/(?:from\s*|import\s*\(?\s*)["']([^"']+)["']/g)) {
+          if (!match[1].startsWith('./')) fail('non-relative pharmacy module ' + match[1]);
+          if (!fs.existsSync(path.resolve(path.dirname(file), match[1]))) fail('missing pharmacy module ' + match[1]);
+        }
+      }
+    }
+  }
+  scan(pharmacy);
+  const world = fs.readFileSync(path.join(pharmacy, 'world.js'), 'utf8');
+  if (!world.includes("from './vendor/three-lite.js'")) fail('world must use local Three vendor');
+  if (/pharmacy|three-lite/.test(fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8').match(/const SHELL = \[[\s\S]*?\];/)[0])) fail('3D must not be precached');
+  if (!failures) pass('pharmacy route, local modules, CSP isolation and SW shell');
+} catch (error) { fail('pharmacy checks: ' + error.message); }
 process.exit(failures ? 1 : 0);

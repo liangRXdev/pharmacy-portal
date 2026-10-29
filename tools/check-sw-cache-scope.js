@@ -69,7 +69,7 @@ function loadSw(src, existingCaches) {
   };
   const selfStub = {
     addEventListener: (k, fn) => { (listeners[k] || (listeners[k] = [])).push(fn); },
-    location: { origin: ORIGIN },
+    location: { origin: ORIGIN, href: `${ORIGIN}/tool/sw.js` },
     registration: { scope: `${ORIGIN}/tool/` },
     skipWaiting: () => {},
     clients: { claim: () => {} },

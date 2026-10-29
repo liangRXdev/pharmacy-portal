@@ -149,7 +149,9 @@ try {
     const urls = (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat();
     return { keys, urls };
   });
-  assert(cached.keys.includes('pharmacy-portal-v11'));
+  const shellSource = await readFile('public/sw.js', 'utf8');
+  const shellVersion = shellSource.match(/const CACHE = `\$\{PREFIX\}(v\d+)`;/)[1];
+  assert(cached.keys.includes('pharmacy-portal-' + shellVersion));
   assert(!cached.urls.some(url => url.startsWith('/pharmacy/')));
   pass('controlling portal SW does not cache or replace pharmacy resources');
   await page.goto(base + '/pharmacy/?no3d=1');

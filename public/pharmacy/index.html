@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3D 藥局｜梁哲嘉藥師 Clinical Pharmacy Toolkit</title>
+  <meta name="description" content="探索五個臨床藥學工作領域，瀏覽梁哲嘉藥師的臨床計算、實證教學、藥物安全、政府資料庫與院內工具。">
+  <link rel="canonical" href="https://pharmacy-portal.liangrxdev.workers.dev/pharmacy/">
+  <meta property="og:title" content="3D 藥局｜梁哲嘉藥師 Clinical Pharmacy Toolkit">
+  <meta property="og:description" content="從五個藥學工作區探索臨床藥學工具。">
+  <meta property="og:url" content="https://pharmacy-portal.liangrxdev.workers.dev/pharmacy/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="./pharmacy.css">
+  <script type="module" src="./main.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div><p class="eyebrow">LIANG · CLINICAL PHARMACY TOOLKIT</p><h1>3D 藥局探索</h1></div>
+    <a href="/">工具總覽 ↗</a>
+  </header>
+  <main>
+    <section class="scene-shell" aria-label="藥局工作區全景">
+      <div class="scene-caption"><span class="eyebrow">FIVE ZONES · ONE PHARMACY</span><h2>從工作場域，找到需要的工具。</h2><p>拖曳旋轉、捲動縮放；也可使用下方分類瀏覽。</p></div>
+      <div id="world" aria-hidden="true"></div>
+      <div class="scene-actions"><button id="overview" type="button">返回全景</button></div>
+      <p id="status" role="status">3D 藥局準備中…</p>
+      <div id="fallback" hidden><p>此裝置目前無法啟動 3D 藥局。你仍可瀏覽全部工具。</p><button id="browse-tools" type="button">瀏覽工具</button> <button id="retry" type="button">重新載入 3D</button></div>
+    </section>
+    <nav id="categories" aria-label="藥學工具分類"></nav>
+    <section id="browser" aria-labelledby="list-title" tabindex="-1">
+      <div class="section-heading"><div><p class="eyebrow">TOOL DIRECTORY</p><h2 id="list-title">全部工具</h2></div><span id="count"></span></div>
+      <div id="tools" class="tool-list"></div>
+    </section>
+    <aside id="detail" aria-labelledby="detail-title" hidden>
+      <button id="close-detail" type="button" aria-label="關閉工具詳情">關閉 ✕</button>
+      <div id="detail-content"></div>
+    </aside>
+    <noscript><p>請啟用 JavaScript 瀏覽互動藥局，或<a href="/">回到工具總覽</a>。</p></noscript>
+  </main>
+  <footer>梁哲嘉藥師 · 五個藥學工作領域，一個工具入口。</footer>
+</body>
+</html>

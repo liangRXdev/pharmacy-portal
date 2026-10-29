@@ -15,3 +15,8 @@
 # Service Worker 不長快取，確保更新能即時生效
 /sw.js
   Cache-Control: no-cache
+
+# Pharmacy modules use local ES modules; detach the root hash-only CSP first.
+/pharmacy/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests

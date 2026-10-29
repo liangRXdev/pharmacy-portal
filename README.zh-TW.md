@@ -87,3 +87,26 @@ pharmacy-portal/
 ## License
 
 MIT
+
+## 3D 藥局（Phase 1 灰盒）
+
+`/pharmacy/` 是獨立的原生 ES module / Three.js 探索頁；首頁維持原有工具入口。
+工具名稱、描述、連結與分類均讀取 `/tools.json`，`scene-layout.js` 僅保存空間配置。
+分類按鈕、工具列表及手機詳情面板不依賴 WebGL；`?no3d=1` 可測試備援。
+場景僅包含五區灰盒、通用工具標記與 OrbitControls，尚未加入 Phase 2 的藥局家具、人物。
+
+```bash
+npm ci
+npm run build:three       # 更新已納入版本控制的 vendor bundle 與 MIT 授權
+npm run check:three       # 逐 byte 驗證可重現性
+node tools/check-portal.js
+npx playwright install --with-deps chromium
+npm run test:pharmacy
+python3 -m http.server 8000 --directory public
+```
+
+若環境已有 Chromium，可用 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:pharmacy`。
+一般靜態伺服器不會套用 `_headers`；smoke test 的內建伺服器會模擬路由 CSP 與 redirect。
+CI 使用 Playwright 配對的 Chromium 與 ANGLE/SwiftShader，確認 `data-world="ready"`、非單色 framebuffer、
+桌面與手機導覽、備援與首頁 zero-3D。產生的截圖在忽略的 `test-results/`。
+Android Chrome 實機操作與 production Cloudflare CSP 單一標頭仍需人工／後續階段驗證。

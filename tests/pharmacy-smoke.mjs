@@ -326,6 +326,14 @@ try {
     // Bulk data/visibility checks use the reduced-motion path; normal camera motion
     // is separately verified above against actual projected 3D coordinates.
     await target.emulateMedia({ reducedMotion: 'reduce' });
+    // Playwright 1.56 polls the immediate return value. Load modules before
+    // polling so a Promise cannot be mistaken for a satisfied predicate.
+    await target.evaluate(async () => {
+      const [THREE, framing, layout] = await Promise.all([
+        import('/pharmacy/vendor/three-lite.js'), import('/pharmacy/camera-framing.js'), import('/pharmacy/scene-layout.js'),
+      ]);
+      window.__testFraming = { THREE, cameraFrame: framing.cameraFrame, resolveToolPosition: layout.resolveToolPosition };
+    });
     for (const category of catalog.categories) {
       await target.locator('#overview').click();
       const zone = target.locator(`#world [data-category="${category.id}"]`);
@@ -354,10 +362,8 @@ try {
         // A single visible line can still carry its previous category-view
         // anchor until the pending on-demand frame completes. Wait for the
         // actual projection, keeping the same strict geometry assertion.
-        const framingHandle = await target.waitForFunction(async ({ category, index }) => {
-          const THREE = await import('/pharmacy/vendor/three-lite.js');
-          const { cameraFrame } = await import('/pharmacy/camera-framing.js');
-          const { resolveToolPosition } = await import('/pharmacy/scene-layout.js');
+        const framingHandle = await target.waitForFunction(({ category, index }) => {
+          const { THREE, cameraFrame, resolveToolPosition } = window.__testFraming;
           const world = document.querySelector('#world'), rect = world.getBoundingClientRect();
           const small = world.clientWidth < 768;
           const marker = new THREE.Vector3(...resolveToolPosition(category, index));
@@ -367,6 +373,7 @@ try {
           marker.y += .35; marker.project(camera);
           const expected = [(marker.x + 1) * rect.width / 2, (1 - marker.y) * rect.height / 2];
           const line = [...document.querySelectorAll('.map-links line')].find(line => line.style.display !== 'none');
+          if (!line) return false;
           const actual = [Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))];
           const x = rect.x + actual[0], y = rect.y + actual[1], panel = document.querySelector('#detail').getBoundingClientRect();
           const result = { error: Math.hypot(actual[0] - expected[0], actual[1] - expected[1]), inside: actual[0] > 0 && actual[0] < rect.width && actual[1] > 0 && actual[1] < rect.height,

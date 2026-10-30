@@ -22,8 +22,8 @@
   </header>
   <main>
     <section class="scene-shell" aria-label="藥局工作區全景">
-      <div class="scene-caption"><span class="eyebrow">FIVE ZONES · ONE PHARMACY</span><h2 id="scene-title" aria-live="polite">走進藥局，探索藥學工具。</h2><p id="scene-help">點選地圖上的工作區，再點選設備名稱查看介紹。拖曳旋轉、捲動縮放。</p></div>
-      <div class="scene-actions"><button id="overview" type="button">返回全景</button> <button id="explore" type="button" hidden>前往 Rx Hub</button></div>
+      <div class="scene-caption"><span class="eyebrow">FIVE ZONES · ONE PHARMACY</span><h2 id="scene-title" aria-live="polite">選擇工作區開始探索</h2><p id="scene-help">藥師會帶你前往，抵達後即可查看工具。</p><p id="scene-secondary" class="scene-secondary">也可以點選地面自由移動。</p></div>
+      <div class="scene-actions"><button id="overview" type="button">返回全景</button> <button id="explore" type="button" aria-controls="detail" aria-expanded="false" hidden>Rx Hub · 關於作者</button></div>
       <div id="world" role="group" aria-label="3D 藥局互動地圖" aria-describedby="scene-help"></div>
       <p id="status" role="status">3D 藥局準備中…</p>
       <div id="fallback" hidden><p>此裝置目前無法啟動 3D 藥局。你仍可瀏覽全部工具。</p><button id="browse-tools" type="button">瀏覽工具</button> <button id="retry" type="button">重新載入 3D</button></div>

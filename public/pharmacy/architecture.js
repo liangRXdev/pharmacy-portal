@@ -9,8 +9,8 @@ export function createArchitecture(kit, screen, small) {
     kit.box([size[0] + .04, .07, size[2] + .04],
       [position[0], position[1] + size[1] / 2, position[2]], P.wood);
   };
-  const counter = (x, z, width, depth = .85) => {
-    kit.box([width, .78, depth], [x, .55, z], P.wall);
+  const counter = (x, z, width, depth = .85, finish = P.wall) => {
+    kit.box([width, .78, depth], [x, .55, z], finish);
     kit.box([width + .12, .12, depth + .12], [x, 1, z], P.wood);
     kit.box([width - .12, .14, .025], [x, .36, z + depth / 2 + .015], P.teal);
   };
@@ -47,14 +47,14 @@ export function createArchitecture(kit, screen, small) {
 
   // A readable architectural fascia rather than another floating room label.
   kit.box([4.3, .85, .08], [0, 1.95, -7.75], P.teal);
-  kit.box([3.8, .66, .025], [0, 1.95, -7.69], '#ffffff', undefined, screen('hub'));
+  kit.box([3.8, .66, .025], [0, 1.95, -7.69], '#ffffff', undefined, screen('home'));
 
   // Central coordination island: open staff side, wood worktop, visible pharmacist.
-  kit.box([3.5, .025, 3.4], [0, .16, 1.8], P.wood);
-  counter(0, .55, 2.7, .7);
-  for (const x of [-1.25, 1.25]) counter(x, 1.45, .55, 1.65);
-  createMonitor(kit, -.5, .52, screen('hub'), 1.05, 1.46);
+  kit.box([3.5, .025, 3.4], [0, .16, 1.8], P.hubFloor);
+  counter(0, .55, 2.7, .7, P.hub);
+  for (const x of [-1.25, 1.25]) counter(x, 1.45, .55, 1.65, P.hub);
+  createMonitor(kit, -.5, .52, screen('home'), 1.05, 1.46);
   // Rx emblem is part of the island front and remains visible without DOM labels.
-  kit.box([1.15, .6, .1], [0, .8, 3.08], P.teal);
+  kit.box([1.15, .6, .1], [0, .8, 3.08], P.hub);
   kit.box([1.03, .5, .025], [0, .8, 3.145], '#ffffff', undefined, screen('hub'));
 }

@@ -102,6 +102,11 @@ try {
     const resize = await sample('resize', 650, beforeResize); assert(resize.drawCalls > 0 && resize.labelWrites > 0);
     assert.notEqual(await canvas.getAttribute('width'), oldBufferWidth, 'resize updates the actual WebGL drawing buffer');
     await idle('resize-settled');
+    await page.locator('#explore').click();
+    await page.waitForSelector('#detail[data-content="author"]:not([hidden])');
+    await idle('author-idle');
+    await page.locator('#close-detail').click();
+    await idle('author-closed-idle');
     assert.deepEqual(errors, []);
     await context.close();
   }

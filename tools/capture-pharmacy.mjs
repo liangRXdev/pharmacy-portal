@@ -1,4 +1,4 @@
-// Local visual review only; serves the same route-specific headers as production.
+// Local or PHARMACY_BASE_URL visual review; local mode emulates route headers.
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, stat, mkdir, writeFile } from 'node:fs/promises';
@@ -39,6 +39,7 @@ let browser;
 try {
   await mkdir(output, { recursive: true });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = process.env.PHARMACY_BASE_URL || `http://127.0.0.1:${server.address().port}`;
   browser = await chromium.launch({ headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}),
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -56,7 +57,7 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(`http://127.0.0.1:${server.address().port}/pharmacy/`);
+    await page.goto(`${base}/pharmacy/`);
     await page.waitForSelector('html[data-world="ready"]');
     const audit = await page.evaluate(async small => {
       const { auditPharmacySpace } = await import('/pharmacy/spatial-audit.js');
@@ -93,6 +94,7 @@ try {
     await page.locator('#overview').click();
     await page.locator('#world [data-category="clinical"]').click();
     await page.locator('#world [data-tool="vanco-auc-calc"]').click();
+    await page.waitForTimeout(300); // allow the reduced-motion resize frame to draw
     await page.screenshot({ path: path.join(output, `${name}-tool-detail.png`) });
     assert.deepEqual(errors, [], `${name} must render without JavaScript errors`);
     await context.close();

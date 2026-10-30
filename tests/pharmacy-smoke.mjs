@@ -39,7 +39,7 @@ const server = createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end('Not found'); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const base = `http://127.0.0.1:${server.address().port}`;
+const base = process.env.PHARMACY_BASE_URL || `http://127.0.0.1:${server.address().port}`;
 let browser, checks = 0;
 const pass = name => { checks++; console.log('PASS ' + name); };
 // Test-only counters. No runtime metrics/quality system is added to the application.

@@ -1,6 +1,6 @@
 # R6 — 自由點選移動
 
-2026-10-30 需求確認後實作。本地實作、自動檢查與桌機／手機影片及互動預覽已交付，依使用者指示提交 R6。尚未 push 或部署；基底為 R1–R5 `ac9a835`、Phase 3 `444cccc`。
+2026-10-30 需求確認後實作。本地實作、自動檢查與桌機／手機影片及互動預覽已交付，依使用者指示提交 R6。已推至 PR #10 並產生 Cloudflare Preview，Android Chrome 實機驗收由使用者確認通過；正式站尚未套用 R6。基底為 R1–R5 `ac9a835`、Phase 3 `444cccc`。
 
 ## 已定案互動
 
@@ -54,4 +54,4 @@ node tools/preview-pharmacy.mjs
 node tools/record-free-pharmacy.mjs test-results/r6-recording-04
 ```
 
-本機預覽 `http://127.0.0.1:4173/pharmacy/`；既有分頁需重新整理才載入 R6。Phase 4 正式發布檢查尚未進行。
+本機預覽 `http://127.0.0.1:4173/pharmacy/`；既有分頁需重新整理才載入 R6。後續發布前與正式站確認狀態見 [Phase 4](phase4-release.md)。

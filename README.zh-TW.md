@@ -98,8 +98,7 @@ WebGL 失敗時才顯示文字備援；`?no3d=1` 可測試。詳見 [地圖導�
 Phase 1 架構保留，場景已加入五區代表性家具、藥架與中央藥師；詳見 [Phase 2 美術與驗證紀錄](docs/phase2-art.md)。
 後續順序：R2 五區辨識與配置 → R3 作業細節與路線定案 → R4 全景／探索視角驗收 → [R5 藥師移動式探索](docs/redesign-r5.md) → Phase 3 效能驗證 → Phase 4 發布檢查。
 行走空間與停靠點提前於 R2–R3 規劃；R4 同時驗收桌面／手機的角色比例及兩種取景，依動線需求決定是否擴大樓板。
-目前 R1–R5 已由使用者驗收並提交；[Phase 3](docs/phase3-performance.md) 已完成本地按需繪製與標籤更新優化，16 組 smoke、1,586 項移動檢查及閒置／互動喚醒測試通過。實機效能待驗證，尚未部署。
-新增 [R6 自由點選移動](docs/redesign-r6.md) 已完成本地實作，等待桌機／手機影片與互動預覽驗收。
+R1–R6 與 [Phase 3](docs/phase3-performance.md) 已提交至 [PR #10](https://github.com/liangRXdev/pharmacy-portal/pull/10)。[Phase 4 發布前驗證](docs/phase4-release.md) 已在實際 Cloudflare Preview 通過，Android Chrome 實機驗收亦由使用者確認通過。PR 尚未合併；正式站發布後確認仍待執行。
 
 ```bash
 npm ci

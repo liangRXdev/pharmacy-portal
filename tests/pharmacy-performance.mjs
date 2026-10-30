@@ -8,6 +8,7 @@ import { startPharmacyServer } from '../tools/pharmacy-server.mjs';
 const baseline = process.argv.includes('--baseline');
 const output = path.resolve('test-results', baseline ? 'phase3-baseline.json' : 'phase3-performance.json');
 const server = await startPharmacyServer();
+const base = process.env.PHARMACY_BASE_URL || server.base;
 let browser;
 const results = [];
 const baselineWorld = baseline ? execFileSync('git', ['show', 'ac9a835:public/pharmacy/world.js'], { encoding: 'utf8' }) : null;
@@ -38,7 +39,7 @@ try {
     const page = await context.newPage(), errors = [];
     if (baseline) await page.route('**/pharmacy/world.js', route => route.fulfill({ contentType: 'text/javascript', body: baselineWorld }));
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(server.base + '/pharmacy/');
+    await page.goto(base + '/pharmacy/');
     await page.waitForSelector('html[data-world="ready"]');
     const sample = async (state, ms = 650, initial) => {
       const before = initial ?? await page.evaluate(() => ({ ...window.perfCounts, time: performance.now() }));

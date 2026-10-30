@@ -7,7 +7,7 @@ try{
   for(const [device,viewport]of[['desktop',{width:1280,height:900}],['mobile',{width:390,height:844}]]){
     const context=await browser.newContext({viewport,...(device==='mobile'?{isMobile:true,hasTouch:true}:{} )});
     const page=await context.newPage();await instrumentFreeWorld(page);
-    console.log('FREE UI',device,JSON.stringify(await runFreeScenarios(page,server.base,{device})));
+    console.log('FREE UI',device,JSON.stringify(await runFreeScenarios(page,process.env.PHARMACY_BASE_URL||server.base,{device})));
     await page.emulateMedia({reducedMotion:'reduce'});await page.locator('#overview').click();await page.waitForTimeout(100);
     const click=await page.evaluate(async()=>{
       const THREE=await import('/pharmacy/vendor/three-lite.js'),rect=document.querySelector('#world canvas').getBoundingClientRect();

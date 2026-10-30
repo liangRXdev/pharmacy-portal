@@ -93,6 +93,7 @@ main {
 }
 .scene-caption {
   padding: 24px 28px;
+  padding-right: 310px;
   pointer-events: none;
 }
 .scene-caption p {
@@ -101,7 +102,7 @@ main {
   color: var(--muted);
 }
 #world {
-  height: 440px;
+  height: clamp(480px, calc(100dvh - 290px), 760px);
   position: relative;
 }
 #world canvas {
@@ -112,14 +113,13 @@ main {
 }
 .room-label {
   position: absolute;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
+  z-index: 2;
   border-radius: 5px;
   padding: 4px 8px;
   background: #fffdf8e8;
   font-size: 12px;
   color: var(--ink);
-  white-space: nowrap;
+  white-space: normal;
 }
 .scene-actions {
   position: absolute;
@@ -249,22 +249,26 @@ footer {
     padding: 16px 12px;
   }
   .scene-caption {
-    padding: 20px 16px 0;
+    padding: 16px 16px 0;
   }
   .scene-caption h2 {
     font-size: 18px;
-    max-width: 230px;
+    max-width: none;
   }
   .scene-caption p {
-    font-size: 12px;
+    font-size: 13px;
   }
   .scene-actions {
     position: static;
-    padding: 0 16px 10px;
-    text-align: right;
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px 0;
+  }
+  .scene-actions button {
+    font-size: 13px;
   }
   #world {
-    height: 320px;
+    height: clamp(440px, calc(100dvh - 310px), 620px);
   }
   .tool-list {
     grid-template-columns: 1fr;
@@ -280,7 +284,7 @@ footer {
     bottom: 0;
     right: 0;
     width: 100%;
-    max-height: 55dvh;
+    max-height: 50dvh;
     border-radius: 18px 18px 0 0;
     padding: 16px 20px;
     padding-bottom: max(20px, env(safe-area-inset-bottom));
@@ -296,20 +300,69 @@ footer {
   }
 }
 
-/* Small floor plaques; the DOM category bar remains the primary navigation. */
-.zone-label {
-  border: 1px solid #c4c9bd;
-  border-radius: 2px;
-  padding: 3px 7px;
-  background: #fffdf3ed;
-  color: #4c625f;
-  font-size: 11px;
+/* Projected HTML controls belong to the 3D map, including keyboard/touch access. */
+.map-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
 }
-.zone-label.is-focused {
+.map-links line {
+  stroke: #527f7b;
+  stroke-width: 1.5;
+}
+.zone-label {
+  border: 1px solid #657d7e;
+  border-radius: 5px;
+  padding: 9px 12px;
+  background: #fffdf3;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 155px;
+}
+.map-tool {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 152px;
+  min-height: 50px;
+  padding: 8px;
+  border: 1px solid #657d7e;
+  background: #fffdf3;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.map-tool b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--ink);
+  font: 600 13px monospace;
+}
+.map-tool span { min-width: 0; }
+.map-tool.is-focused {
   border-color: #527f7b;
   background: #2e4f4f;
   color: #fffdf3;
 }
+.map-tool.is-focused b { color: #fffdf3; }
+#world[data-view=tool] .map-tool {
+  width: 44px;
+  min-height: 44px;
+  justify-content: center;
+}
+#world[data-view=tool] .map-tool span { display: none; }
+.room-label:focus-visible { z-index: 3; }
 @media (max-width: 767px) {
-  .zone-label { font-size: 10px; padding: 3px 5px; }
+  #world[data-view=overview] { height: 340px; }
+  #world[data-view=hub] { height: 420px; }
+  #world[data-view=travel] { height: 460px; }
+  #world[data-view=tool] { height: 320px; }
+  .zone-label { font-size: 12px; padding: 8px; max-width: 135px; }
+  .map-tool { width: 106px; font-size: 13px; gap: 4px; padding: 6px; }
+  .map-tool b { font-size: 11px; }
 }

@@ -4,6 +4,7 @@ import { readFile, stat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const root = path.resolve('public');
+const catalog = JSON.parse(await readFile('public/tools.json', 'utf8'));
 const rules = [];
 for (const line of (await readFile('public/_headers', 'utf8')).split('\n')) {
   if (!line.trim() || line.trimStart().startsWith('#')) continue;
@@ -30,7 +31,7 @@ const server = createServer(async (req, res) => {
       res.writeHead(307, { location: (url.pathname === '/index.html' ? '/' : '/pharmacy/') + url.search }); res.end(); return;
     }
     let filename = path.resolve(root, '.' + decodeURIComponent(url.pathname));
-    if (!filename.startsWith(root + '/') && filename !== root) throw new Error('path');
+    if (!filename.startsWith(root + path.sep) && filename !== root) throw new Error('path');
     if ((await stat(filename)).isDirectory()) filename = path.join(filename, 'index.html');
     const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
     res.writeHead(200, { ...headersFor(url.pathname), 'content-type': mime[path.extname(filename)] || 'text/plain' });
@@ -101,6 +102,10 @@ try {
   await page.waitForSelector('html[data-world="ready"]');
   assert.equal(await page.locator('#categories button').count(), 6);
   assert.equal(await page.locator('#tools button').count(), 22);
+  assert(await page.locator('#backup-browser').isHidden(), 'normal mode must not show the fallback directory');
+  assert.equal(await page.locator('#world .zone-label:visible').count(), 5);
+  assert.equal(await page.locator('#world .map-tool:visible').count(), 0);
+  assert.equal(await page.locator('#world .map-tool').count(), catalog.tools.length);
   const csp = await page.evaluate(async () => (await fetch(location.href)).headers.get('content-security-policy'));
   assert.equal((csp.match(/default-src/g) || []).length, 1);
   // Read within the same frame as a fresh render. More than one pixel color proves drawn geometry.
@@ -117,13 +122,14 @@ try {
   assert(desktopArt.calls < 100 && desktopArt.triangles > 0);
   console.log('ART desktop overview', desktopArt);
   pass('desktop actual WebGL world ready, five zones and nonuniform framebuffer');
-  const beforeFocus = await page.locator('.room-label').filter({ hasText: '臨床計算' }).boundingBox();
-  await page.locator('[data-category="clinical"]').click();
-  await page.waitForTimeout(700);
-  const afterFocus = await page.locator('.room-label').filter({ hasText: '臨床計算' }).boundingBox();
-  assert(Math.hypot(afterFocus.x - beforeFocus.x, afterFocus.y - beforeFocus.y) > 5, 'camera must actually move');
+  const anchorPosition = () => page.locator('.map-links line').first().evaluate(line => [Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))]);
+  const beforeFocus = await anchorPosition();
+  await page.locator('#world [data-category="clinical"]').click();
+  await page.waitForTimeout(850);
+  const afterFocus = await anchorPosition();
+  assert(Math.hypot(afterFocus[0] - beforeFocus[0], afterFocus[1] - beforeFocus[1]) > 5, 'camera focus must move a projected 3D anchor, independent of labels and highlighting');
   assert.equal(new URL(page.url()).hash, '#/clinical');
-  await page.locator('[data-tool="vanco-auc-calc"]').click();
+  await page.locator('#world [data-tool="vanco-auc-calc"]').click();
   await page.waitForSelector('#detail:not([hidden])');
   assert.equal(await page.locator('#detail a').count(), 2);
   assert.equal(await page.locator('#detail a').first().getAttribute('rel'), 'noopener noreferrer');
@@ -135,7 +141,7 @@ try {
   pass('category, tool details, links, escape and browser history');
   await page.goto(base + '/pharmacy/#/gov');
   await page.waitForSelector('html[data-world="ready"]');
-  assert.equal(await page.locator('#list-title').textContent(), '政府資料庫');
+  assert.match(await page.locator('#scene-title').textContent(), /政府資料庫/);
   await page.goto(base + '/pharmacy/#/clinical/nhi-drug-price-history');
   await page.waitForSelector('html[data-world="ready"]');
   assert.equal(new URL(page.url()).hash, '#/gov/nhi-drug-price-history');
@@ -144,6 +150,244 @@ try {
   assert.equal(new URL(page.url()).hash, '');
   assert.equal(new URL(page.url()).search, '?quality=low');
   pass('deep link, canonical tool category and invalid route fallback');
+  const spatial = await page.evaluate(async () => {
+    const { auditPharmacySpace, readSceneBounds } = await import('/pharmacy/spatial-audit.js');
+    const { findRoute, validateNavigation, segmentBoxDistance } = await import('/pharmacy/navigation.js');
+    const { FLOOR_PLAN } = await import('/pharmacy/scene-layout.js');
+    const THREE = await import('/pharmacy/vendor/three-lite.js');
+    const { createGeometryKit, createPharmacist } = await import('/pharmacy/geometry.js');
+    const data = await (await fetch('/tools.json')).json();
+    const audits = [auditPharmacySpace(data, false), auditPharmacySpace(data, true)];
+    const tests = [];
+    const expect = (name, condition) => tests.push({ name, ok: Boolean(condition) });
+    const rejects = action => { try { action(); return false; } catch { return true; } };
+    const box = { minX: 0, maxX: 1, minZ: 0, maxZ: 1 };
+    expect('segment crosses a thin obstacle between clear endpoints', segmentBoxDistance([-10, .5], [10, .5], { ...box, maxX: .001 }) === 0);
+    expect('parallel segment distance', segmentBoxDistance([-2, 2], [3, 2], box) === 1);
+    expect('corner distance', Math.abs(segmentBoxDistance([-2, -2], [-1, -1], box) - Math.SQRT2) < 1e-9);
+    expect('zero length point distance', segmentBoxDistance([2, 2], [2, 2], box) === Math.SQRT2);
+    expect('invalid coordinates reject', rejects(() => segmentBoxDistance([NaN, 0], [0, 0], box)));
+    expect('inverted bounds reject', rejects(() => segmentBoxDistance([0, 0], [1, 1], { ...box, minX: 2 })));
+    for (const audit of audits) {
+      const { plan, profile, obstacles, areas, report } = audit;
+      const check = candidate => validateNavigation(candidate, obstacles, profile, FLOOR_PLAN, areas);
+      expect('real desktop/mobile scene clear', report.ok && report.minimumClearance >= plan.clearance && obstacles.length > 100);
+      expect('actor includes arms and is not a point', profile.radius > .5 && profile.width > .9 && profile.height > 1.7);
+      // Check actual vertex attributes independently of the AABB measurement.
+      // Horizontal radius is invariant under every yaw angle, including turns.
+      const actor = new THREE.Scene(), actorResources = [];
+      try {
+        const kit = createGeometryKit(actor, actorResources);
+        createPharmacist(kit, 0, 0, profile.floorY); kit.flush();
+        const matrix = new THREE.Object3D().matrix, vertex = new THREE.Vector3();
+        let inside = true, vertices = 0;
+        for (const mesh of actor.children) for (let i = 0; i < mesh.count; i++) {
+          mesh.getMatrixAt(i, matrix);
+          const attribute = mesh.geometry.getAttribute('position');
+          for (let j = 0; j < attribute.count; j++) {
+            vertex.fromBufferAttribute(attribute, j).applyMatrix4(matrix); vertices++;
+            inside &&= Math.hypot(vertex.x, vertex.z) <= profile.radius + 1e-6 && vertex.y <= profile.floorY + profile.height + 1e-6;
+          }
+        }
+        expect('all actor vertices fit the turn envelope', inside && vertices > 100);
+      } finally { actorResources.forEach(resource => resource.dispose()); }
+      const nodes = plan.nodes.map(node => node.id), positions = new Map(plan.nodes.map(node => [node.id, node.position]));
+      const distance = nodes.map((a, i) => nodes.map((b, j) => i === j ? 0 : Infinity));
+      for (const [a, b] of plan.edges) {
+        const i = nodes.indexOf(a), j = nodes.indexOf(b), p = positions.get(a), q = positions.get(b);
+        distance[i][j] = distance[j][i] = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      }
+      // Floyd-Warshall independently checks every pair against the route planner.
+      for (let k = 0; k < nodes.length; k++) for (let i = 0; i < nodes.length; i++) for (let j = 0; j < nodes.length; j++) distance[i][j] = Math.min(distance[i][j], distance[i][k] + distance[k][j]);
+      const edges = new Set(plan.edges.flatMap(([a, b]) => [a + ':' + b, b + ':' + a]));
+      for (let i = 0; i < nodes.length; i++) for (let j = 0; j < nodes.length; j++) {
+        const route = findRoute(plan, nodes[i], nodes[j]);
+        let cost = 0, valid = route?.[0] === nodes[i] && route.at(-1) === nodes[j];
+        for (let k = 1; k < (route?.length || 0); k++) {
+          const a = positions.get(route[k - 1]), b = positions.get(route[k]);
+          cost += Math.hypot(a[0] - b[0], a[1] - b[1]);
+          valid &&= edges.has(route[k - 1] + ':' + route[k]);
+        }
+        expect(`route ${nodes[i]} to ${nodes[j]}`, valid && Math.abs(cost - distance[i][j]) < 1e-8);
+      }
+      const broken = structuredClone(plan);
+      broken.edges = broken.edges.filter(edge => !edge.includes('clinical'));
+      expect('unreachable stop cannot pass', !check(broken).ok && findRoute(broken, 'entrance', 'clinical') === null);
+      const missing = structuredClone(plan); delete missing.stops.gov;
+      expect('missing stop cannot pass', !check(missing).ok);
+      const shared = structuredClone(plan); shared.stops.gov = shared.stops.adr;
+      expect('two categories cannot silently share a stop', !check(shared).ok);
+      const swapped = structuredClone(plan); [swapped.stops.gov, swapped.stops.adr] = [swapped.stops.adr, swapped.stops.gov];
+      expect('category stops cannot be swapped to the wrong work areas', !check(swapped).ok);
+      const nonfinite = structuredClone(plan); nonfinite.nodes[0].position[0] = Infinity;
+      expect('nonfinite node cannot pass', !check(nonfinite).ok);
+      expect('empty obstacle list cannot give a false green', !validateNavigation(plan, [], profile, FLOOR_PLAN, areas).ok);
+      expect('zero sized actor cannot pass', !validateNavigation(plan, obstacles, { ...profile, radius: 0 }, FLOOR_PLAN, areas).ok);
+      expect('unknown route endpoint rejects', rejects(() => findRoute(plan, 'entrance', 'unknown')));
+      // Insert an actual rotated mesh halfway along the east aisle. Clear end
+      // nodes must not hide a collision between them.
+      const fixture = new THREE.Scene(), geometry = new THREE.BoxGeometry(.05, 1.5, 2), material = new THREE.MeshStandardMaterial();
+      try {
+        const mesh = new THREE.InstancedMesh(geometry, material, 1), transform = new THREE.Object3D();
+        transform.position.set(1.5, .9, 1); transform.rotation.y = Math.PI / 4; transform.updateMatrix();
+        mesh.position.x = 1; mesh.setMatrixAt(0, transform.matrix); fixture.add(mesh);
+        const measured = readSceneBounds(fixture);
+        expect('rotated geometry bounds follow mesh transform', measured.length === 1 && measured[0].minX < 1.8 && measured[0].maxX > 3.2);
+        expect('new mid-route furniture is detected', !validateNavigation(plan, [...obstacles, ...measured], profile, FLOOR_PLAN, areas).ok);
+        mesh.dispose();
+      } finally { geometry.dispose(); material.dispose(); }
+    }
+    return { failed: tests.filter(test => !test.ok), assertions: tests.length,
+      metrics: audits.map(audit => ({ small: audit.small, profile: audit.profile, minimumClearance: audit.report.minimumClearance, obstacles: audit.obstacles.length })) };
+  });
+  assert.deepEqual(spatial.failed, []);
+  console.log('SPATIAL', JSON.stringify({ assertions: spatial.assertions, metrics: spatial.metrics }));
+  pass('R3 actual geometry clearance, every route pair, rotated obstruction and fail-closed invalid plans');
+  const views = await page.evaluate(async () => {
+    const THREE = await import('/pharmacy/vendor/three-lite.js');
+    const { cameraFrame } = await import('/pharmacy/camera-framing.js');
+    const { createToolMarkers } = await import('/pharmacy/tool-art.js');
+    const { createPharmacyArt } = await import('/pharmacy/art.js');
+    const { createWalkingPharmacist } = await import('/pharmacy/pharmacist.js');
+    const { NAVIGATION_PLAN } = await import('/pharmacy/scene-layout.js');
+    const { readSceneBounds } = await import('/pharmacy/spatial-audit.js');
+    const catalog = await (await fetch('/tools.json')).json();
+    const failed = [], measurements = [];
+    for (const small of [false, true]) {
+      const scene = new THREE.Scene(), resources = [];
+      try {
+        const markers = createToolMarkers(scene, resources, catalog.categories, catalog.tools);
+        createPharmacyArt(scene, resources, { small, ...catalog, markers });
+        const avatar = createWalkingPharmacist(scene, resources);
+        avatar.pose({ position: [.25, 1.8] });
+        scene.updateMatrixWorld(true);
+        const frame = (mode, categoryId, marker) => {
+          const width = small ? 366 : 1326, height = small ? (mode === 'overview' ? 340 : mode === 'hub' ? 420 : mode === 'tool' ? 320 : 534) : 760;
+          const camera = new THREE.PerspectiveCamera(small ? 43 : 34, width / height, .1, 150);
+          const pose = cameraFrame({ mode, categoryId, marker, aspect: camera.aspect, fov: camera.fov, small });
+          camera.position.copy(pose.position); camera.lookAt(pose.target); camera.updateMatrixWorld(true);
+          if (camera.position.y < 1.5) failed.push(`${small} ${mode}: camera below working height`);
+          return camera;
+        };
+        const overview = frame('overview');
+        let maximumExtent = 0;
+        for (const box of readSceneBounds(scene)) for (const x of [box.minX, box.maxX]) for (const y of [box.minY, box.maxY]) for (const z of [box.minZ, box.maxZ]) {
+          const p = new THREE.Vector3(x, y, z).project(overview);
+          maximumExtent = Math.max(maximumExtent, Math.abs(p.x), Math.abs(p.y));
+          if (Math.abs(p.x) > 1 || Math.abs(p.y) > 1 || p.z < -1 || p.z > 1) failed.push(`${small}: overview clips scene bounds`);
+        }
+        const visible = (camera, point) => {
+          const direction = point.clone().sub(camera.position).normalize();
+          const ray = new THREE.Raycaster(camera.position, direction);
+          const hit = ray.intersectObjects(scene.children, true)[0];
+          return hit && hit.point.distanceTo(point) < .4;
+        };
+        const hub = frame('hub');
+        if (!visible(hub, new THREE.Vector3(.25, 1.65, 2.02)) || !visible(hub, new THREE.Vector3(.25, 1.3, 1.98))) failed.push(`${small}: pharmacist head or coat is occluded`);
+        for (const tool of catalog.tools) {
+          avatar.pose({ position: NAVIGATION_PLAN.nodes.find(node => node.id === NAVIGATION_PLAN.stops[tool.category]).position });
+          scene.updateMatrixWorld(true);
+          const marker = markers.get(tool.id), p = marker.position.clone(); p.z += .075;
+          for (const mode of ['category', 'tool']) {
+            const camera = frame(mode, tool.category, marker.position);
+            const projected = p.clone().project(camera);
+            if (Math.abs(projected.x) > 1 || Math.abs(projected.y) > 1 || !visible(camera, p)) failed.push(`${small} ${mode}: device ${tool.id} clipped or occluded`);
+          }
+        }
+        measurements.push({ small, maximumExtent });
+      } finally { resources.forEach(resource => resource.dispose()); }
+    }
+    return { failed, measurements };
+  });
+  assert.deepEqual(views.failed, []);
+  console.log('FRAMING', JSON.stringify(views.measurements));
+  pass('R4 full-scene fit, actual mesh visibility of pharmacist and all category/tool close-ups');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('#explore').click();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator('#world').getAttribute('data-view'), 'hub');
+  assert.equal(await page.locator('#scene-title').textContent(), 'Rx Hub · 藥師工作站');
+  assert.equal(await page.locator('#world .room-label:visible').count(), 0);
+  await page.locator('#overview').click();
+  await page.goBack();
+  await page.waitForFunction(() => document.querySelector('#world').dataset.view === 'hub');
+  await page.goForward();
+  await page.waitForFunction(() => document.querySelector('#world').dataset.view === 'overview');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  pass('R4 near-pharmacist view, return to overview and back/forward view restoration');
+  async function checkMapTools(target, touch = false) {
+    // Bulk data/visibility checks use the reduced-motion path; normal camera motion
+    // is separately verified above against actual projected 3D coordinates.
+    await target.emulateMedia({ reducedMotion: 'reduce' });
+    for (const category of catalog.categories) {
+      await target.locator('#overview').click();
+      const zone = target.locator(`#world [data-category="${category.id}"]`);
+      if (touch) await zone.tap(); else await zone.click();
+      await target.waitForTimeout(850);
+      const expected = catalog.tools.filter(tool => tool.category === category.id);
+      const labels = target.locator('#world .map-tool:visible');
+      assert.equal(await labels.count(), expected.length, `${category.id}: every tool must have a visible map label`);
+      assert(await target.locator('#backup-browser').isHidden());
+      const world = await target.locator('#world').boundingBox();
+      const boxes = await labels.evaluateAll(nodes => nodes.map(node => {
+        const r = node.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }));
+      for (const [i, box] of boxes.entries()) {
+        assert(box.height >= 44 && box.x >= world.x && box.y >= world.y && box.x + box.width <= world.x + world.width + 1 && box.y + box.height <= world.y + world.height + 1, 'map labels must fit the scene with 44px touch targets');
+        for (const other of boxes.slice(i + 1)) assert(box.x + box.width <= other.x || other.x + other.width <= box.x || box.y + box.height <= other.y || other.y + other.height <= box.y, 'tool labels must not overlap');
+      }
+      for (const tool of expected) {
+        const button = target.locator(`#world [data-tool="${tool.id}"]`);
+        if (touch) await button.tap(); else await button.click();
+        await target.waitForTimeout(100);
+        assert.equal(new URL(target.url()).hash, `#/${tool.category}/${tool.id}`);
+        assert.equal(await target.locator('#detail-title').textContent(), tool.nameZh);
+        await target.waitForFunction(() => [...document.querySelectorAll('.map-links line')].filter(line => line.style.display !== 'none').length === 1);
+        const framing = await target.evaluate(async ({ category, index }) => {
+          const THREE = await import('/pharmacy/vendor/three-lite.js');
+          const { cameraFrame } = await import('/pharmacy/camera-framing.js');
+          const { resolveToolPosition } = await import('/pharmacy/scene-layout.js');
+          const world = document.querySelector('#world'), rect = world.getBoundingClientRect();
+          const small = world.clientWidth < 768;
+          const marker = new THREE.Vector3(...resolveToolPosition(category, index));
+          const camera = new THREE.PerspectiveCamera(small ? 43 : 34, rect.width / rect.height, .1, 150);
+          const pose = cameraFrame({ mode: 'tool', categoryId: category, marker, aspect: camera.aspect, fov: camera.fov, small });
+          camera.position.copy(pose.position); camera.lookAt(pose.target); camera.updateMatrixWorld(true);
+          marker.y += .35; marker.project(camera);
+          const expected = [(marker.x + 1) * rect.width / 2, (1 - marker.y) * rect.height / 2];
+          const line = [...document.querySelectorAll('.map-links line')].find(line => line.style.display !== 'none');
+          const actual = [Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))];
+          const x = rect.x + actual[0], y = rect.y + actual[1], panel = document.querySelector('#detail').getBoundingClientRect();
+          return { error: Math.hypot(actual[0] - expected[0], actual[1] - expected[1]), inside: actual[0] > 0 && actual[0] < rect.width && actual[1] > 0 && actual[1] < rect.height,
+            covered: x >= panel.left && x <= panel.right && y >= panel.top && y <= panel.bottom };
+        }, { category: tool.category, index: expected.indexOf(tool) });
+        assert(framing.inside && !framing.covered && framing.error < 2, `${tool.id}: rendered close-up anchor must match the camera frame and avoid the detail panel: ${JSON.stringify(framing)}`);
+        assert((await target.locator('#detail-content').textContent()).includes(tool.description));
+        const links = await target.locator('#detail a').evaluateAll(nodes => nodes.map(a => a.href));
+        assert.deepEqual(links, [tool.url, tool.repo].filter(value => typeof value === 'string' && value.startsWith('https://')));
+        await target.locator('#close-detail').click();
+        assert(await button.evaluate(node => node === document.activeElement), 'closing details returns focus to the same map tool');
+      }
+    }
+    await target.locator('#overview').click();
+    await target.emulateMedia({ reducedMotion: 'no-preference' });
+  }
+  await checkMapTools(page);
+  // Use the actual projected controls with keyboard only, including focus return.
+  const zone = page.locator('#world [data-category="clinical"]');
+  await zone.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#world').dataset.travel === 'arrived' && document.querySelector('#world').dataset.destination === 'clinical');
+  assert(await page.evaluate(() => document.activeElement.matches('#world .map-tool')), 'arrival focuses a map tool for keyboard users');
+  await page.keyboard.press('Tab');
+  assert(await page.evaluate(() => document.activeElement.matches('#world .map-tool')));
+  await page.keyboard.press('Enter');
+  assert(await page.locator('#detail').isVisible());
+  await page.keyboard.press('Escape');
+  assert.equal(new URL(page.url()).hash, '');
+  assert(await page.locator('#overview').evaluate(node => node === document.activeElement));
+  pass('all 22 tools reachable only through the map, complete details, nonoverlapping labels and keyboard navigation');
   const cached = await page.evaluate(async () => {
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat();
@@ -156,6 +400,7 @@ try {
   pass('controlling portal SW does not cache or replace pharmacy resources');
   await page.goto(base + '/pharmacy/?no3d=1');
   await page.waitForSelector('html[data-world="fallback"]');
+  assert(await page.locator('#backup-browser').isVisible());
   await page.locator('[data-category="internal"]').click();
   await page.locator('#tools button').first().click();
   assert.match(await page.locator('#detail').textContent(), /Restricted/);
@@ -255,6 +500,20 @@ try {
   assert.equal(await fixture.locator('#tools button').count(), 22);
   pass('resource disposal, partial-init cleanup, cached-page restoration and context-loss fallback');
   await fixtureContext.close();
+  // 1280x900 at 200% browser zoom has a 640x450 CSS viewport.
+  const zoom = await browser.newContext({ viewport: { width: 640, height: 450 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+  const zoomPage = await zoom.newPage();
+  await zoomPage.goto(base + '/pharmacy/');
+  await zoomPage.waitForSelector('html[data-world="ready"]');
+  await zoomPage.locator('#world [data-category="gov"]').click();
+  await zoomPage.waitForTimeout(300);
+  assert.equal(await zoomPage.locator('#world .map-tool:visible').count(), 7);
+  assert(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await zoomPage.locator('#world [data-tool="nhi-drug-price-history"]').click();
+  assert.equal(await zoomPage.locator('#detail-title').textContent(), '健保藥價歷史查詢');
+  await zoomPage.locator('#close-detail').click();
+  await zoom.close();
+  pass('200 percent equivalent viewport: map labels, detail controls and no horizontal overflow');
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
   await mobile.addInitScript(measureArtFrames);
   const phone = await mobile.newPage();
@@ -268,7 +527,8 @@ try {
   const mobileArt = await phone.evaluate(() => window.artFrame);
   assert(mobileArt.calls <= desktopArt.calls && mobileArt.triangles < desktopArt.triangles);
   console.log('ART mobile overview', mobileArt);
-  assert(await phone.locator('#categories').evaluate(el => el.scrollWidth > el.clientWidth));
+  assert(await phone.locator('#backup-browser').isHidden());
+  assert.equal(await phone.locator('#world .zone-label:visible').count(), 5);
   assert(await phone.locator('canvas').evaluate(el => el.width / el.clientWidth <= 1.5));
   const canvasBounds = await phone.locator('canvas').boundingBox();
   const touch = await mobile.newCDPSession(phone);
@@ -278,8 +538,10 @@ try {
   await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   assert.equal(new URL(phone.url()).hash, '', 'pinch must not select a tool or room');
   await touch.detach();
-  await phone.locator('[data-category="internal"]').click();
-  await phone.locator('#tools button').first().click();
+  await checkMapTools(phone, true);
+  await phone.locator('#world [data-category="internal"]').tap();
+  await phone.waitForTimeout(850);
+  await phone.locator('#world .map-tool:visible').first().tap();
   const bounds = await phone.locator('#detail').boundingBox();
   assert(bounds.y + bounds.height <= 845 && bounds.x >= 0);
   assert(await phone.locator('#close-detail').evaluate(el => el.getBoundingClientRect().height >= 44));
@@ -290,7 +552,7 @@ try {
   await page.goto(base + '/pharmacy/');
   await page.waitForSelector('html[data-world="ready"]');
   await page.screenshot({ path: 'test-results/pharmacy-desktop.png', fullPage: true });
-  pass('mobile WebGL, scrollable nav, DPR cap, bottom sheet, 44px control, zero errors/CSP');
+  pass('mobile touch access to all 22 map tools, DPR cap, bottom sheet, 44px controls, zero errors/CSP');
   assert.deepEqual(allCsp, []);
   console.log(`${checks} smoke groups passed; Android hardware acceptance remains manual.`);
 } finally {

@@ -3,7 +3,7 @@ import { readFile, writeFile, copyFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 const version = JSON.parse(await readFile('node_modules/three/package.json')).version;
 const result = await build({
-  stdin: { contents: `export { Scene, Color, PerspectiveCamera, WebGLRenderer, HemisphereLight, DirectionalLight, BoxGeometry, CylinderGeometry, SphereGeometry, BufferGeometry, Material, CanvasTexture, InstancedMesh, Object3D, Mesh, MeshStandardMaterial, Vector2, Vector3, Raycaster } from 'three'; export { OrbitControls } from 'three/addons/controls/OrbitControls.js';`, resolveDir: process.cwd(), sourcefile: 'three-entry.js' },
+  stdin: { contents: `export { Scene, Color, ACESFilmicToneMapping, PerspectiveCamera, WebGLRenderer, HemisphereLight, DirectionalLight, BoxGeometry, CylinderGeometry, SphereGeometry, BufferGeometry, Material, CanvasTexture, InstancedMesh, Object3D, Mesh, MeshStandardMaterial, Vector2, Vector3, Raycaster } from 'three'; export { OrbitControls } from 'three/addons/controls/OrbitControls.js';`, resolveDir: process.cwd(), sourcefile: 'three-entry.js' },
   bundle: true, format: 'esm', minify: true, legalComments: 'inline', target: 'es2022', write: false,
   banner: { js: `/*! Three.js ${version} | MIT License | see LICENSE-three.txt */` },
 });

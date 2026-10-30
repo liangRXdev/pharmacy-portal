@@ -5,12 +5,37 @@ const el = (tag, text, className) => {
   if (className) node.className = className;
   return node;
 };
-let data, world, selectedCategory, selectedTool, lastTrigger;
-function navigate(category, tool) {
-  lastTrigger = document.activeElement;
+let data, world, selectedCategory, selectedTool, lastTrigger, focusOnArrival = false;
+function navigate(category, tool, view = 'map') {
+  const entering = category && !tool && category !== selectedCategory;
+  if (entering) focusOnArrival = true;
+  else if (!tool) focusOnArrival = false;
+  if (tool) lastTrigger = [...document.querySelectorAll(`[data-tool="${CSS.escape(tool)}"]`)]
+    .find(node => node.getClientRects().length) || document.activeElement;
+  else if (!selectedTool) lastTrigger = document.activeElement;
   const hash = category ? `#/${encodeURIComponent(category)}${tool ? '/' + encodeURIComponent(tool) : ''}` : '';
-  history.pushState(null, '', location.pathname + location.search + hash);
+  history.pushState({ pharmacyView: view }, '', location.pathname + location.search + hash);
   route();
+}
+function journeyChanged(state) {
+  if (state.categoryId !== selectedCategory || state.toolId !== selectedTool) return;
+  const category = data.categories.find(item => item.id === selectedCategory);
+  const label = category?.label || 'Rx Hub';
+  if (state.moving) {
+    $('scene-title').textContent = `前往${label}…`;
+    $('scene-help').textContent = '藥師沿通道步行；可點選另一工作區立即改目的地。';
+    $('status').textContent = `藥師正前往${label} · 可隨時改目的地。`;
+    renderDetail(null);
+  } else if (state.arrived || !state.supported) {
+    const count = data.tools.filter(tool => tool.category === selectedCategory).length;
+    $('scene-title').textContent = category ? `${label} · ${count} 個工具` : 'Rx Hub · 藥師工作站';
+    $('scene-help').textContent = category ? '點選設備名稱查看介紹；返回全景可探索其他工作區。' : '藥師已到中央協作空間；返回全景可探索五個工作區。';
+    $('status').textContent = state.supported ? `已抵達${label} · ${category ? '點選設備名稱查看工具。' : '可返回全景選擇工作區。'}` : `${label} · 點選設備名稱查看工具。`;
+    renderDetail(selectedTool ? data.tools.find(tool => tool.id === selectedTool) : null);
+    if (focusOnArrival && category && !selectedTool) {
+      document.querySelector('#world .map-tool:not([hidden])')?.focus({ preventScroll: true }); focusOnArrival = false;
+    }
+  } else $('status').textContent = `${data.categories.length} 個工作區 · ${data.tools.length} 項工具 · 點選目的地，藥師會沿通道前往。`;
 }
 function safeLink(value, label) {
   try {
@@ -30,8 +55,9 @@ function renderDetail(tool) {
     const wasOpen = !$('detail').hidden;
     $('detail').hidden = true;
     if (wasOpen) {
-      const equivalent = lastTrigger?.dataset.tool && document.querySelector(`[data-tool="${CSS.escape(lastTrigger.dataset.tool)}"]`);
-      (lastTrigger?.isConnected ? lastTrigger : equivalent || $('overview')).focus({ preventScroll: true });
+      const equivalent = lastTrigger?.dataset.tool && [...document.querySelectorAll(`[data-tool="${CSS.escape(lastTrigger.dataset.tool)}"]`)]
+        .find(node => node.getClientRects().length);
+      (lastTrigger?.isConnected && lastTrigger.getClientRects().length ? lastTrigger : equivalent || $('overview')).focus({ preventScroll: true });
     }
     return;
   }
@@ -70,10 +96,17 @@ function route() {
   }
   selectedCategory = categoryId;
   selectedTool = toolId;
+  const hubView = !categoryId && !toolId && history.state?.pharmacyView === 'hub' && Boolean(world);
   for (const button of $('categories').children) button.setAttribute('aria-pressed', String(button.dataset.category === (categoryId || '')));
   $('list-title').textContent = category?.label || '全部工具';
   const tools = categoryId ? data.tools.filter(item => item.category === categoryId) : data.tools;
   $('count').textContent = `${tools.length} 個工具`;
+  $('scene-title').textContent = hubView ? 'Rx Hub · 藥師工作站' : category ? `${category.label} · ${tools.length} 個工具` : '走進藥局，探索藥學工具。';
+  $('scene-help').textContent = document.documentElement.dataset.world === 'fallback'
+    ? '3D 目前無法使用，請使用下方備援分類與工具清單。'
+    : hubView ? '近看藥師與中央協作空間；返回全景可探索五個工作區。'
+    : category ? '點選設備名稱查看介紹；返回全景可探索其他工作區。'
+    : '點選地圖上的工作區，再點選設備名稱查看介紹。拖曳旋轉、捲動縮放。';
   $('tools').replaceChildren(...tools.map(item => {
     const button = el('button', null, 'tool-button');
     button.type = 'button';
@@ -82,18 +115,23 @@ function route() {
     button.onclick = () => navigate(item.category, item.id);
     return button;
   }));
-  renderDetail(toolId ? tool : null);
   if (toolId) world?.focusTool(categoryId, toolId);
   else if (categoryId) world?.focusCategory(categoryId);
+  else if (hubView) world?.focusHub();
   else world?.resetView();
+  const state = world?.getJourneyState();
+  renderDetail(toolId && (!world || !state.supported || (!state.moving && state.arrived && state.categoryId === categoryId)) ? tool : null);
 }
 function fallback(error) {
   if (error) console.warn('3D unavailable:', error.message);
   world?.destroy();
   world = null;
   $('world').hidden = true;
+  $('explore').hidden = true;
+  $('backup-browser').hidden = false;
   $('fallback').hidden = false;
   $('status').textContent = '工具清單仍可正常使用。';
+  $('scene-help').textContent = '3D 目前無法使用，請使用下方備援分類與工具清單。';
   document.documentElement.dataset.world = 'fallback';
 }
 function probeWebGL() {
@@ -129,15 +167,15 @@ async function boot() {
   try {
     const { createWorld } = await import('./world.js');
     world = createWorld({ container: $('world'), ...data,
-      onSelectCategory: id => navigate(id), onSelectTool: (category, id) => navigate(category, id), onError: fallback });
+      onSelectCategory: id => navigate(id), onSelectTool: (category, id) => navigate(category, id), onJourneyState: journeyChanged, onError: fallback });
     world.setPaused(document.hidden);
-    if (selectedTool) world.focusTool(selectedCategory, selectedTool);
-    else if (selectedCategory) world.focusCategory(selectedCategory);
+    $('explore').hidden = false;
     document.documentElement.dataset.world = 'ready';
-    $('status').textContent = '3D 藥局已就緒 · 點選工作區或使用分類瀏覽工具。';
+    route();
   } catch (error) { fallback(error); }
 }
 $('overview').onclick = () => navigate();
+$('explore').onclick = () => navigate(undefined, undefined, 'hub');
 $('close-detail').onclick = () => navigate(selectedCategory);
 $('retry').onclick = () => location.reload();
 addEventListener('keydown', event => { if (event.key === 'Escape') navigate(); });

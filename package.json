@@ -4,7 +4,7 @@
   "scripts": {
     "build:three": "node tools/build-three.mjs",
     "check:three": "node tools/build-three.mjs --check",
-    "test:pharmacy": "node tests/pharmacy-smoke.mjs"
+    "test:pharmacy": "node tests/pharmacy-smoke.mjs && node tests/pharmacy-journey.mjs"
   },
   "devDependencies": {
     "three": "0.180.0",

@@ -22,18 +22,20 @@
   </header>
   <main>
     <section class="scene-shell" aria-label="藥局工作區全景">
-      <div class="scene-caption"><span class="eyebrow">FIVE ZONES · ONE PHARMACY</span><h2>從工作場域，找到需要的工具。</h2><p>拖曳旋轉、捲動縮放；也可使用下方分類瀏覽。</p></div>
-      <div id="world" aria-hidden="true"></div>
-      <div class="scene-actions"><button id="overview" type="button">返回全景</button></div>
+      <div class="scene-caption"><span class="eyebrow">FIVE ZONES · ONE PHARMACY</span><h2 id="scene-title" aria-live="polite">走進藥局，探索藥學工具。</h2><p id="scene-help">點選地圖上的工作區，再點選設備名稱查看介紹。拖曳旋轉、捲動縮放。</p></div>
+      <div class="scene-actions"><button id="overview" type="button">返回全景</button> <button id="explore" type="button" hidden>前往 Rx Hub</button></div>
+      <div id="world" role="group" aria-label="3D 藥局互動地圖" aria-describedby="scene-help"></div>
       <p id="status" role="status">3D 藥局準備中…</p>
       <div id="fallback" hidden><p>此裝置目前無法啟動 3D 藥局。你仍可瀏覽全部工具。</p><button id="browse-tools" type="button">瀏覽工具</button> <button id="retry" type="button">重新載入 3D</button></div>
     </section>
-    <nav id="categories" aria-label="藥學工具分類"></nav>
+    <div id="backup-browser" hidden>
+    <nav id="categories" aria-label="備援工具分類"></nav>
     <section id="browser" aria-labelledby="list-title" tabindex="-1">
       <div class="section-heading"><div><p class="eyebrow">TOOL DIRECTORY</p><h2 id="list-title">全部工具</h2></div><span id="count"></span></div>
       <div id="tools" class="tool-list"></div>
     </section>
-    <aside id="detail" aria-labelledby="detail-title" hidden>
+    </div>
+    <aside id="detail" role="dialog" aria-modal="false" aria-labelledby="detail-title" hidden>
       <button id="close-detail" type="button" aria-label="關閉工具詳情">關閉 ✕</button>
       <div id="detail-content"></div>
     </aside>

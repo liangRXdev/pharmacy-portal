@@ -36,6 +36,7 @@ const server = createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end('Not found'); }
 });
 let browser;
+const metrics = [];
 try {
   await mkdir(output, { recursive: true });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -55,6 +56,14 @@ try {
       ...(name === 'mobile' ? { isMobile: true, hasTouch: true } : {}),
     });
     const page = await context.newPage();
+    await page.addInitScript(() => {
+      let calls=0,triangles=0; const raf=requestAnimationFrame;
+      window.requestAnimationFrame=fn=>raf(time=>{calls=triangles=0;fn(time);if(calls)window.__reviewFrame={calls,triangles};});
+      for(const method of ['drawElements','drawArrays','drawElementsInstanced','drawArraysInstanced']){
+        const original=WebGL2RenderingContext.prototype[method];
+        WebGL2RenderingContext.prototype[method]=function(...args){calls++;if(args[0]===this.TRIANGLES)triangles+=(method.includes('Elements')?args[1]:args[2])/3*(method.includes('Instanced')?args.at(-1):1);return original.apply(this,args);};
+      }
+    });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/pharmacy/`);
@@ -75,6 +84,7 @@ try {
     if (process.argv.includes('--audit-only')) { await context.close(); continue; }
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(600);
+    metrics.push({device:name,base,frame:await page.evaluate(()=>window.__reviewFrame)});
     await page.screenshot({ path: path.join(output, `${name}-overview.png`), fullPage: true });
     await page.locator('.scene-shell').screenshot({ path: path.join(output, `${name}-scene.png`) });
     if (name === 'desktop') {
@@ -85,6 +95,12 @@ try {
     await page.locator('#explore').click();
     await page.waitForTimeout(300);
     await page.locator('.scene-shell').screenshot({ path: path.join(output, `${name}-hub.png`) });
+    if(await page.locator('#detail[data-content="author"]').isVisible()){
+      await page.screenshot({path:path.join(output,`${name}-author-panel.png`),fullPage:name==='desktop'});
+      await page.locator('#detail').evaluate(node=>{node.style.visibility='hidden';});
+      await page.locator('.scene-shell').screenshot({path:path.join(output,`${name}-hub-focus.png`)});
+      await page.locator('#detail').evaluate(node=>{node.style.visibility='';});
+    }
     for (const id of ['clinical', 'ebm', 'adr', 'gov', 'internal']) {
       await page.locator('#overview').click();
       await page.locator(`#world [data-category="${id}"]`).click();
@@ -99,7 +115,8 @@ try {
     assert.deepEqual(errors, [], `${name} must render without JavaScript errors`);
     await context.close();
   }
-  console.log(`Visual review screenshots: ${output}`);
+  await writeFile(path.join(output,'art-metrics.json'),JSON.stringify(metrics,null,2));
+  console.log(`Visual review screenshots: ${output}`,JSON.stringify(metrics));
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

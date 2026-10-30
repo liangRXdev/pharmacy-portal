@@ -65,7 +65,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     scene.add(light);
     const box = (size, position, color, metadata) => {
       const geometry = new THREE.BoxGeometry(...size);
-      const material = new THREE.MeshStandardMaterial({ color, roughness: .9 });
+      const material = new THREE.MeshStandardMaterial({ color, roughness: metadata?.kind === 'category' || color === PALETTE.floor ? .98 : .9 });
       resources.push(geometry, material);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(...position);
@@ -118,6 +118,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
         continue;
       }
       const room = box([width, .02, depth], [x, .135, z], surface, { kind: 'category', categoryId: category.id });
+      room.userData.baseColor = new THREE.Color(surface);
       rooms.set(category.id, room);
       box([Math.min(width - .5, 4.5), .02, .09], [x, .16, z + depth / 2 - .1], color);
       // Shared perimeter/dividers are composed by the art module, not five booths.
@@ -205,7 +206,11 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
         label.element.setAttribute('aria-expanded', String(Boolean(label.toolId && label.toolId === toolId)));
       }
       art.selectMarker(markers.get(toolId));
-      for (const [id, mesh] of rooms) mesh.material.emissive.set(id === categoryId ? '#101710' : '#000000');
+      for (const [id, mesh] of rooms) {
+        mesh.material.color.copy(mesh.userData.baseColor);
+        if (categoryId && id !== categoryId) mesh.material.color.lerp(new THREE.Color('#e8e4db'), .22);
+        mesh.material.emissive.set(id === categoryId ? '#141b12' : '#000000');
+      }
       updateToolFeedback();
     }
     function arrive() {

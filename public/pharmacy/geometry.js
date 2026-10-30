@@ -1,9 +1,11 @@
 import * as THREE from './vendor/three-lite.js';
+import { AUTHOR } from './identity.js';
 
 export const PALETTE = {
-  floor: '#eee6d8', wall: '#f8f4eb', wood: '#cbb18e', frame: '#657d7e',
+  floor: '#e5ddcf', wall: '#faf7f0', wood: '#c8ae8d', frame: '#657d7e',
   clinical: '#8eabb9', ebm: '#9eae91', adr: '#c59b79', gov: '#73a6a4', internal: '#97a6b0',
   paper: '#fffcf4', screen: '#273e48', teal: '#527f7b', skin: '#d4ab8d', hair: '#333c3e',
+  hub: '#315f63', hubFloor: '#bba184',
 };
 
 // One batch per shape/material, including all medicine boxes. No per-box draw calls.
@@ -13,7 +15,9 @@ export function createGeometryKit(scene, resources) {
   function material(color, texture) {
     const key = texture || color;
     if (!materials.has(key)) {
-      const mat = new THREE.MeshStandardMaterial({ color, map: texture || null, roughness: .88, metalness: .02 });
+      const roughness = color === PALETTE.floor ? .98 : color === PALETTE.wood || color === PALETTE.hubFloor ? .78
+        : color === PALETTE.wall || color === PALETTE.paper ? .94 : color === PALETTE.hub ? .84 : .9;
+      const mat = new THREE.MeshStandardMaterial({ color, map: texture || null, roughness, metalness: 0 });
       if (texture) { mat.emissive.set('#ffffff'); mat.emissiveMap = texture; mat.emissiveIntensity = .12; }
       materials.set(key, mat);
       resources.push(mat);
@@ -108,9 +112,17 @@ export function createScreenTexture(kind, resources) {
     title('HOSPITAL NETWORK'); ctx.strokeStyle = '#b9dcd0';
     ctx.strokeRect(220, 160, 78, 70); ctx.beginPath(); ctx.arc(259, 157, 26, Math.PI, 0); ctx.stroke();
     for (let i = 0; i < 15; i++) ctx.fillRect(35 + i * 8, 260, i % 3 + 2, 25);
+  } else if (kind === 'home') {
+    title('HOME');
+    ctx.font = 'bold 118px sans-serif'; ctx.fillText('Rx', 38, 190);
+    ctx.fillStyle = '#fffcf4'; ctx.font = 'bold 34px sans-serif'; ctx.fillText(AUTHOR.handle, 226, 142);
+    ctx.font = '24px sans-serif'; ctx.fillText('GitHub / Projects', 226, 182);
+    ctx.strokeStyle = '#92c6bd'; line([[30, 225], [478, 225]]);
+    ctx.font = '24px sans-serif'; ctx.fillText('Clinical Pharmacy + EBM', 76, 275);
   } else {
-    ctx.font = 'bold 160px sans-serif'; ctx.fillText('Rx', 145, 185);
-    ctx.font = '26px sans-serif'; ctx.fillText('Clinical Pharmacy Toolkit', 100, 235);
+    ctx.fillStyle = '#fffcf4';
+    ctx.font = 'bold 180px sans-serif'; ctx.fillText('Rx', 130, 210);
+    ctx.font = 'bold 36px sans-serif'; ctx.fillText('HOME', 195, 275);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = 'srgb';
@@ -128,11 +140,11 @@ export function createMonitor(kit, x, z, texture, width = .85, y = 1.05) {
   kit.box([.07, .25, .08], [x, y - .35, z], PALETTE.frame);
 }
 export function createShelf(kit, x, z, small) {
-  kit.box([1.4, 1.65, .12], [x, .85, z - .18], PALETTE.wall);
-  for (const dx of [-.72, .72]) kit.box([.1, 1.75, .48], [x + dx, .85, z], PALETTE.wood);
+  kit.box([1.4, 1.95, .12], [x, 1.025, z - .18], PALETTE.wall);
+  for (const dx of [-.72, .72]) kit.box([.1, 2, .48], [x + dx, 1.025, z], PALETTE.wood);
   const colors = [PALETTE.paper, '#c4d6dd', '#cad6bf', '#dfc8c3'];
   for (let row = 0; row < 4; row++) {
-    const y = .22 + row * .4;
+    const y = .22 + row * .46;
     kit.box([1.5, .07, .48], [x, y, z], PALETTE.wood);
     for (let col = 0; col < (small ? 5 : 8); col++) {
       const dx = -.58 + col * (small ? .29 : .165);

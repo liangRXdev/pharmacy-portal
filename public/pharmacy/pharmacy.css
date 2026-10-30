@@ -101,6 +101,8 @@ main {
   font-size: 14px;
   color: var(--muted);
 }
+.scene-caption #scene-help { color: var(--ink); font-size: .95rem; }
+.scene-caption .scene-secondary { margin-top: 4px; font-size: 13px; }
 #world {
   height: clamp(480px, calc(100dvh - 290px), 760px);
   position: relative;
@@ -229,6 +231,34 @@ main {
   border: 1px solid var(--accent);
   border-radius: 6px;
 }
+#detail[data-content=author] {
+  display: flex;
+  flex-direction: column;
+  top: 228px;
+  max-height: calc(100dvh - 252px);
+  padding: 20px;
+  overflow: hidden;
+}
+#detail[data-content=author] #close-detail { flex-shrink: 0; }
+#detail[data-content=author] #detail-content { min-height: 0; overflow: auto; }
+#detail .author-card h2 { margin: 8px 0 6px; }
+.author-card p { margin: 10px 0; font-size: .95rem; line-height: 1.6; }
+.author-card .eyebrow { font-size: 11px; margin-top: 12px; }
+.author-card .author-role { color: var(--muted); font-size: 13px; }
+.author-card .author-summary { font-size: 13px; color: var(--ink); }
+.author-card .author-link,
+.author-card .author-link:visited {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  background: #2e6b7a;
+  color: #fff;
+  text-decoration: none;
+  margin-top: 14px;
+}
+.author-card .author-link:hover { background: #255a68; }
 footer {
   padding: 32px;
   text-align: center;
@@ -288,6 +318,12 @@ footer {
     border-radius: 18px 18px 0 0;
     padding: 16px 20px;
     padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  #detail[data-content=author] {
+    top: auto;
+    max-height: min(40dvh, 320px);
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
   .room-label {
     font-size: 10px;

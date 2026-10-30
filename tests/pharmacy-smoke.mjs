@@ -351,7 +351,10 @@ try {
         assert.equal(new URL(target.url()).hash, `#/${tool.category}/${tool.id}`);
         assert.equal(await target.locator('#detail-title').textContent(), tool.nameZh);
         await target.waitForFunction(() => [...document.querySelectorAll('.map-links line')].filter(line => line.style.display !== 'none').length === 1);
-        const framing = await target.evaluate(async ({ category, index }) => {
+        // A single visible line can still carry its previous category-view
+        // anchor until the pending on-demand frame completes. Wait for the
+        // actual projection, keeping the same strict geometry assertion.
+        const framingHandle = await target.waitForFunction(async ({ category, index }) => {
           const THREE = await import('/pharmacy/vendor/three-lite.js');
           const { cameraFrame } = await import('/pharmacy/camera-framing.js');
           const { resolveToolPosition } = await import('/pharmacy/scene-layout.js');
@@ -366,9 +369,11 @@ try {
           const line = [...document.querySelectorAll('.map-links line')].find(line => line.style.display !== 'none');
           const actual = [Number(line.getAttribute('x1')), Number(line.getAttribute('y1'))];
           const x = rect.x + actual[0], y = rect.y + actual[1], panel = document.querySelector('#detail').getBoundingClientRect();
-          return { error: Math.hypot(actual[0] - expected[0], actual[1] - expected[1]), inside: actual[0] > 0 && actual[0] < rect.width && actual[1] > 0 && actual[1] < rect.height,
+          const result = { error: Math.hypot(actual[0] - expected[0], actual[1] - expected[1]), inside: actual[0] > 0 && actual[0] < rect.width && actual[1] > 0 && actual[1] < rect.height,
             covered: x >= panel.left && x <= panel.right && y >= panel.top && y <= panel.bottom };
-        }, { category: tool.category, index: expected.indexOf(tool) });
+          return result.inside && !result.covered && result.error < 2 ? result : false;
+        }, { category: tool.category, index: expected.indexOf(tool) }, { polling: 100, timeout: 5000 });
+        const framing = await framingHandle.jsonValue();
         assert(framing.inside && !framing.covered && framing.error < 2, `${tool.id}: rendered close-up anchor must match the camera frame and avoid the detail panel: ${JSON.stringify(framing)}`);
         assert((await target.locator('#detail-content').textContent()).includes(tool.description));
         const links = await target.locator('#detail a').evaluateAll(nodes => nodes.map(a => a.href));

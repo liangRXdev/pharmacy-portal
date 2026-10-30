@@ -13,6 +13,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
   const resources = [], cleanups = [];
   let renderer, canvas, controls, observer;
   let frame = 0, paused = false, destroyed = false, tween = null;
+  let labelsDirty = true;
+  const labelSizes = new WeakMap();
   function destroy() {
     if (destroyed) return;
     destroyed = true;
@@ -52,6 +54,10 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     let selectedCategory, selectedTool, hoveredTool, viewMode = 'overview';
     let cameraReady = false;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+    function requestRender(updateLabels = false) {
+      labelsDirty ||= updateLabels;
+      if (!frame && !paused && !destroyed) frame = requestAnimationFrame(render);
+    }
     scene.add(new THREE.HemisphereLight(0xffffff, 0x9caa9d, 1.6));
     const light = new THREE.DirectionalLight(0xfff7ee, 2.4);
     light.position.set(-5, 15, 8);
@@ -160,12 +166,14 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       const { target: next, position: end } = framing();
       if (reduced.matches) { camera.position.copy(end); controls.target.copy(next); tween = null; }
       else tween = { from: camera.position.clone(), target: controls.target.clone(), end, next, start: performance.now() };
+      requestRender(true);
     }
     function updateToolFeedback() {
       for (const [id, mesh] of markers) {
         mesh.material.emissive.set(id === selectedTool || id === hoveredTool ? '#5b6245' : '#000000');
         mesh.scale.setScalar(id === hoveredTool ? 1.06 : 1);
       }
+      requestRender();
     }
     function highlight(categoryId, toolId) {
       viewMode = toolId ? 'tool' : categoryId ? 'category' : 'overview';
@@ -173,6 +181,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       selectedCategory = categoryId;
       selectedTool = toolId;
       for (const label of labels) {
+        labelSizes.delete(label.element);
         label.element.classList.toggle('is-focused', label.toolId === toolId && Boolean(toolId));
         label.element.hidden = label.toolId ? label.categoryId !== categoryId || Boolean(toolId && label.toolId !== toolId) : Boolean(categoryId);
         if (label.element.hidden) label.line.style.display = 'none';
@@ -212,6 +221,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(devicePixelRatio, small() ? 1.5 : 2));
       renderer.setSize(container.clientWidth, container.clientHeight);
+      for (const label of labels) labelSizes.delete(label.element);
+      requestRender(true);
       if (cameraReady && !journey.snapshot().moving) moveTo();
     }
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
@@ -244,11 +255,11 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) down = null;
       const mesh = hit(event);
       canvas.style.cursor = mesh ? 'pointer' : 'grab';
-      hoveredTool = mesh?.userData.toolId;
-      updateToolFeedback();
+      const next = mesh?.userData.toolId;
+      if (next !== hoveredTool) { hoveredTool = next; updateToolFeedback(); }
     }
     function pointerCancel(event) { pointers.delete(event.pointerId); down = null; }
-    function pointerLeave() { hoveredTool = undefined; updateToolFeedback(); }
+    function pointerLeave() { if (hoveredTool) { hoveredTool = undefined; updateToolFeedback(); } }
     function cancelTween() { tween = null; }
     function contextLost(event) { event.preventDefault(); onError(new Error('WebGL context lost')); }
     listen(canvas, 'pointerdown', pointerDown);
@@ -258,13 +269,20 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     listen(canvas, 'pointercancel', pointerCancel);
     listen(canvas, 'pointerleave', pointerLeave);
     listen(controls, 'start', cancelTween);
+    listen(controls, 'change', () => requestRender(true));
     listen(reduced, 'change', () => {
       const state = journey.snapshot();
       if (reduced.matches && state.moving) { poseActor(journey.request(state.destination, true), 0, true); arrive(); }
+      else if (reduced.matches && tween) moveTo();
     });
     observer = new ResizeObserver(resize);
     cleanups.push(() => observer.disconnect());
     observer.observe(container);
+    document.fonts?.ready.then(() => {
+      if (destroyed) return;
+      for (const label of labels) labelSizes.delete(label.element);
+      requestRender(true);
+    });
     function placeLabels() {
       const width = container.clientWidth, height = container.clientHeight;
       const occupied = [];
@@ -289,7 +307,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       // Labels stay attached to their devices, with collision-free touch targets.
       active.sort((a, b) => a.y - b.y || a.x - b.x);
       for (const { label: { element, line, categoryId }, x, y } of active) {
-        const w = element.offsetWidth, h = element.offsetHeight;
+        if (!labelSizes.has(element)) labelSizes.set(element, { w: element.offsetWidth, h: element.offsetHeight });
+        const { w, h } = labelSizes.get(element);
         const clampX = value => Math.max(10, Math.min(width - w - 10, value));
         const clampY = value => Math.max(10, Math.min(height - h - 10, value));
         const candidates = [{ x: clampX(x - w / 2), y: clampY(y - h - (line ? 20 : 0)) }];
@@ -311,6 +330,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       }
     }
     function render(now) {
+      frame = 0;
       if (destroyed || paused) return;
       try {
         const seconds = lastTime === null ? 0 : Math.min(.25, Math.max(0, (now - lastTime) / 1000)); lastTime = now;
@@ -328,10 +348,13 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
           controls.target.lerpVectors(tween.target, tween.next, eased);
           if (t === 1) tween = null;
         }
-        controls.update();
+        const cameraChanged = controls.update();
         renderer.render(scene, camera);
-        placeLabels();
-        frame = requestAnimationFrame(render);
+        if (labelsDirty || cameraChanged) { placeLabels(); labelsDirty = false; }
+        // Continue only while motion or OrbitControls damping changes the scene.
+        const turning = Math.abs(Math.atan2(Math.sin(facing), Math.cos(facing))) > 1e-5;
+        if (state.moving || tween || cameraChanged || turning) requestRender();
+        if (!frame) lastTime = null;
       } catch (error) { onError(error); }
     }
     resize();
@@ -341,7 +364,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     controls.update();
     cameraReady = true;
     renderer.render(scene, camera); // fail initialization before reporting ready
-    frame = requestAnimationFrame(render);
+    requestRender(true);
     return {
       focusCategory(id) { begin(NAVIGATION_PLAN.stops[id], id, undefined, 'category'); },
       focusTool(categoryId, toolId) { begin(NAVIGATION_PLAN.stops[categoryId], categoryId, toolId, 'tool'); },
@@ -353,7 +376,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
         paused = value;
         lastTime = null;
         cancelAnimationFrame(frame);
-        if (!paused) frame = requestAnimationFrame(render);
+        frame = 0;
+        if (!paused) requestRender(true);
       },
       destroy,
     };

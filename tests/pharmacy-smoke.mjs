@@ -49,7 +49,19 @@ function measureArtFrames() {
   window.requestAnimationFrame = callback => raf(time => {
     calls = triangles = 0;
     callback(time);
-    if (calls) window.artFrame = { calls, triangles };
+    if (calls) {
+      window.artFrame = { calls, triangles };
+      if (window.artPainted === undefined) {
+        const canvas = document.querySelector('#world canvas'), gl = canvas?.getContext('webgl2');
+        if (gl) {
+          const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+          gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+          const colors = new Set();
+          for (let i = 0; i < pixels.length; i += 400) colors.add(`${pixels[i]},${pixels[i+1]},${pixels[i+2]}`);
+          window.artPainted = colors.size > 5;
+        }
+      }
+    }
   });
   const prototype = WebGL2RenderingContext.prototype;
   for (const method of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced']) {
@@ -108,15 +120,10 @@ try {
   assert.equal(await page.locator('#world .map-tool').count(), catalog.tools.length);
   const csp = await page.evaluate(async () => (await fetch(location.href)).headers.get('content-security-policy'));
   assert.equal((csp.match(/default-src/g) || []).length, 1);
-  // Read within the same frame as a fresh render. More than one pixel color proves drawn geometry.
-  const painted = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => {
-    const canvas = document.querySelector('canvas'), gl = canvas.getContext('webgl2');
-    const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
-    gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-    const colors = new Set();
-    for (let i = 0; i < pixels.length; i += 400) colors.add(`${pixels[i]},${pixels[i+1]},${pixels[i+2]}`);
-    resolve(colors.size > 5);
-  })));
+  // The test RAF wrapper reads the fresh framebuffer before compositing clears it.
+  // Do not require the production world to render continuously while idle.
+  await page.waitForFunction(() => window.artPainted !== undefined);
+  const painted = await page.evaluate(() => window.artPainted);
   assert(painted, 'WebGL framebuffer must contain geometry');
   const desktopArt = await page.evaluate(() => window.artFrame);
   assert(desktopArt.calls < 100 && desktopArt.triangles > 0);

@@ -61,5 +61,8 @@ jobs:
       - name: Pharmacy WebGL smoke
         run: npm run test:pharmacy
 
+      - name: Pharmacy idle rendering and interaction wake-up
+        run: npm run test:pharmacy:performance
+
       - name: Service worker cache ownership
         run: node tools/check-sw-cache-scope.js

@@ -1,12 +1,21 @@
 import * as THREE from './vendor/three-lite.js';
 import { createPharmacyArt } from './art.js';
 import { PALETTE } from './geometry.js';
-import { resolveLayout, resolveToolPosition } from './scene-layout.js';
+import { FLOOR_PLAN, NAVIGATION_PLAN, resolveLayout } from './scene-layout.js';
+import { createToolMarkers } from './tool-art.js';
+import { cameraFrame } from './camera-framing.js';
+import { createJourney } from './journey.js';
+import { createWalkingPharmacist, measureWalkingProfile } from './pharmacist.js';
+import { readSceneBounds } from './spatial-audit.js';
+import { validateNavigation } from './navigation.js';
+import { createWalkable } from './walkable.js';
 
-export function createWorld({ container, categories, tools, onSelectCategory, onSelectTool, onError }) {
+export function createWorld({ container, categories, tools, onSelectCategory, onSelectTool, onSelectPoint, onJourneyState, onError }) {
   const resources = [], cleanups = [];
   let renderer, canvas, controls, observer;
   let frame = 0, paused = false, destroyed = false, tween = null;
+  let labelsDirty = true;
+  const labelSizes = new WeakMap();
   function destroy() {
     if (destroyed) return;
     destroyed = true;
@@ -27,6 +36,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     const small = () => container.clientWidth < 768;
     const camera = new THREE.PerspectiveCamera(small() ? 43 : 34, 1, .1, 150);
     renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     canvas = renderer.domElement;
     canvas.setAttribute('aria-hidden', 'true');
     container.append(canvas);
@@ -35,13 +46,21 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     controls.minPolarAngle = .3;
     controls.maxPolarAngle = Math.PI / 2.2;
     controls.minDistance = 5;
-    controls.maxDistance = 46;
+    controls.maxDistance = 80;
     controls.enablePan = false;
     cleanups.push(() => controls.dispose());
-    const objects = [], rooms = new Map(), markers = new Map(), labels = [];
+    const objects = [], rooms = new Map(), labels = [];
+    container.dataset.view = 'overview';
+    cleanups.push(() => { delete container.dataset.view; delete container.dataset.travel; delete container.dataset.destination; });
+    let selectedCategory, selectedTool, hoveredTool, viewMode = 'overview';
+    let cameraReady = false;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x9caa9d, 2.0));
-    const light = new THREE.DirectionalLight(0xfff7ee, 2.0);
+    function requestRender(updateLabels = false) {
+      labelsDirty ||= updateLabels;
+      if (!frame && !paused && !destroyed) frame = requestAnimationFrame(render);
+    }
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9caa9d, 1.6));
+    const light = new THREE.DirectionalLight(0xfff7ee, 2.4);
     light.position.set(-5, 15, 8);
     scene.add(light);
     const box = (size, position, color, metadata) => {
@@ -54,75 +73,178 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       scene.add(mesh);
       return mesh;
     };
-    const label = (text, position) => {
-      const element = document.createElement('span');
-      element.className = 'room-label zone-label';
-      element.textContent = text;
+    const links = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    links.classList.add('map-links');
+    links.setAttribute('aria-hidden', 'true');
+    container.append(links);
+    cleanups.push(() => links.remove());
+    const label = (text, position, categoryId, toolId, index) => {
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.className = toolId ? 'room-label map-tool' : 'room-label zone-label';
+      const caption = document.createElement('span');
+      caption.textContent = text;
+      if (toolId) {
+        element.dataset.tool = toolId;
+        const number = document.createElement('b');
+        number.textContent = String(index + 1).padStart(2, '0');
+        number.setAttribute('aria-hidden', 'true');
+        element.append(number);
+      } else element.dataset.category = categoryId;
+      element.append(caption);
+      element.setAttribute('aria-label', toolId ? `介紹：${text}` : `探索${text}`);
+      element.setAttribute('aria-expanded', 'false');
+      listen(element, 'click', () => toolId ? onSelectTool(categoryId, toolId) : onSelectCategory(categoryId));
       container.append(element);
       cleanups.push(() => element.remove());
-      labels.push({ element, position: new THREE.Vector3(...position) });
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      links.append(line);
+      element.hidden = Boolean(toolId);
+      if (line) line.style.display = 'none';
+      labels.push({ element, position: new THREE.Vector3(...position), categoryId, toolId, line });
     };
-    box([17, .35, 17], [0, -.05, 2], PALETTE.floor);
+    box([FLOOR_PLAN.width, .35, FLOOR_PLAN.depth], [0, -.05, FLOOR_PLAN.centerZ], PALETTE.floor);
     // The physical Rx sign replaces the sixth overlay label.
     let overflowRoom;
     for (const category of categories) {
-      const { position: [x, , z], color } = resolveLayout(category.id);
+      const { position: [x, , z], color, size: [width, depth], surface = PALETTE.floor } = resolveLayout(category.id);
       if (rooms.has(category.id)) continue;
       if (resolveLayout(category.id) === resolveLayout('__overflow')) {
         if (!overflowRoom) {
           overflowRoom = box([3.8, .25, 3.6], [x, 0, z], color);
-          label('其他工作區', [x, 1.7, z - 1.3]);
         }
+        label(category.label, [x, 1.7, z - 1.3], category.id);
         console.warn('Unknown scene category; using overflow:', category.id);
         continue;
       }
-      const room = box([3.8, .02, 3.6], [x, .135, z], PALETTE.floor, { kind: 'category', categoryId: category.id });
+      const room = box([width, .02, depth], [x, .135, z], surface, { kind: 'category', categoryId: category.id });
       rooms.set(category.id, room);
-      box([2.8, .02, .09], [x, .16, z + 1.7], color);
+      box([Math.min(width - .5, 4.5), .02, .09], [x, .16, z + depth / 2 - .1], color);
       // Shared perimeter/dividers are composed by the art module, not five booths.
-      label(category.label, [x, .28, z + 1.75]);
-      labels.at(-1).categoryId = category.id;
+      const count = tools.filter(tool => tool.category === category.id).length;
+      label(`${category.label} · ${count}`, category.id === 'internal' ? [x, .3, z + 1.5] : [x, 2.1, z - .9], category.id);
     }
-    // Unknown categories and undeclared tools share deterministic nonoverlapping slots.
-    let overflowIndex = 0;
-    const indices = new Map();
+    const markers = createToolMarkers(scene, resources, categories, tools);
     for (const tool of tools) {
-      const known = rooms.has(tool.category) && resolveLayout(tool.category) !== resolveLayout('__overflow');
       if (!categories.some(category => category.id === tool.category)) console.warn('Undeclared tool category:', tool.category);
-      const index = known ? (indices.get(tool.category) || 0) : overflowIndex++;
-      indices.set(tool.category, index + 1);
-      const position = resolveToolPosition(known ? tool.category : '__overflow', index);
-      const mesh = box([.52, .4, .12], position, '#365c64', { kind: 'tool', categoryId: tool.category, toolId: tool.id });
-      markers.set(tool.id, mesh);
+      const mesh = markers.get(tool.id);
+      objects.push(mesh);
+      label(tool.nameZh, [mesh.position.x, mesh.position.y + .35, mesh.position.z], tool.category, tool.id, mesh.userData.index);
     }
-    const art = createPharmacyArt(scene, resources, { small: small(), categories, markers });
+    const art = createPharmacyArt(scene, resources, { small: small(), categories, markers, tools });
+    const profile = measureWalkingProfile();
+    const obstacles = readSceneBounds(scene).filter(box => box.maxY > profile.floorY + .05 && box.minY < profile.floorY + profile.height);
+    const areas = Object.keys(NAVIGATION_PLAN.stops).map(id => {
+      const { position: [x, , z], size } = resolveLayout(id); return { id, center: [x, z], size };
+    });
+    const validation = validateNavigation(NAVIGATION_PLAN, obstacles, profile, FLOOR_PLAN, areas);
+    if (!validation.ok) throw new Error(`Walking layout invalid: ${validation.issues[0]}`);
+    const navigation = createWalkable({ floor: FLOOR_PLAN, obstacles, profile, plan: NAVIGATION_PLAN });
+    const journey = createJourney(NAVIGATION_PLAN, 2.6, navigation), avatar = createWalkingPharmacist(scene, resources);
+    const destinationMarker = box([.28,.04,.28], [0,.2,0], PALETTE.teal);
+    destinationMarker.visible = false;
+    const feedback = document.createElement('div'); feedback.className = 'walk-feedback'; feedback.role = 'status'; feedback.hidden = true;
+    container.append(feedback);
+    let feedbackTimer;
+    cleanups.push(() => { clearTimeout(feedbackTimer); feedback.remove(); });
+    function blocked(event) {
+      const rect = canvas.getBoundingClientRect();
+      feedback.textContent = '此處無法通行'; feedback.hidden = false;
+      feedback.style.left = `${Math.max(12,Math.min(rect.width - 150, (event?.clientX ?? rect.left + rect.width / 2) - rect.left))}px`;
+      feedback.style.top = `${Math.max(12,Math.min(rect.height - 50, (event?.clientY ?? rect.top + rect.height / 2) - rect.top))}px`;
+      clearTimeout(feedbackTimer); feedbackTimer = setTimeout(() => { feedback.hidden = true; }, 1600);
+    }
+    avatar.pose(journey.snapshot());
+    let intent = 'overview', lastTime = null, facing = 0;
+    function journeyState() {
+      return { ...journey.snapshot(), position: [avatar.root.position.x, avatar.root.position.z], categoryId: selectedCategory, toolId: selectedTool, kind: intent,
+        supported: !selectedCategory || Object.hasOwn(NAVIGATION_PLAN.stops, selectedCategory),
+        cameraTarget: [controls.target.x, controls.target.z], legAngle: avatar.bones.get('leg-left').rotation.x };
+    }
+    function emitJourney() {
+      const state = journeyState();
+      destinationMarker.visible = state.moving && intent === 'free';
+      if (state.target) destinationMarker.position.set(state.target[0],.2,state.target[1]);
+      container.dataset.travel = state.moving ? 'moving' : state.arrived ? 'arrived' : 'idle';
+      container.dataset.destination = state.destination || '';
+      onJourneyState?.(state);
+    }
+    function poseActor(state, seconds, instant = false) {
+      const desired = state.moving ? state.yaw : 0;
+      const difference = Math.atan2(Math.sin(desired - facing), Math.cos(desired - facing));
+      facing = instant ? desired : facing + Math.max(-seconds * 9, Math.min(seconds * 9, difference));
+      avatar.pose({ ...state, yaw: facing });
+    }
     const target = new THREE.Vector3();
-    function moveTo(center, overview = false) {
-      const next = new THREE.Vector3(...center);
-      const offset = overview ? (small() ? new THREE.Vector3(17, 21.4, 25) : new THREE.Vector3(15, 20, 24)) : new THREE.Vector3(7, 9, 11);
-      const end = next.clone().add(offset);
+    function framing() {
+      return cameraFrame({ mode: viewMode, categoryId: selectedCategory, marker: markers.get(selectedTool)?.position, actor: avatar.root.position, aspect: camera.aspect, fov: camera.fov, small: small() });
+    }
+    function moveTo() {
+      const { target: next, position: end } = framing();
       if (reduced.matches) { camera.position.copy(end); controls.target.copy(next); tween = null; }
       else tween = { from: camera.position.clone(), target: controls.target.clone(), end, next, start: performance.now() };
+      requestRender(true);
     }
-    let selectedTool, hoveredTool;
-    const toolLabel = document.createElement('span');
-    toolLabel.className = 'room-label';
-    toolLabel.hidden = true;
-    container.append(toolLabel);
-    cleanups.push(() => toolLabel.remove());
-    const toolNames = new Map(tools.map(tool => [tool.id, tool.nameZh]));
     function updateToolFeedback() {
       for (const [id, mesh] of markers) {
         mesh.material.emissive.set(id === selectedTool || id === hoveredTool ? '#5b6245' : '#000000');
         mesh.scale.setScalar(id === hoveredTool ? 1.06 : 1);
       }
+      requestRender();
     }
     function highlight(categoryId, toolId) {
+      viewMode = toolId ? 'tool' : categoryId ? 'category' : 'overview';
+      container.dataset.view = viewMode;
+      selectedCategory = categoryId;
       selectedTool = toolId;
-      for (const label of labels) label.element.classList.toggle('is-focused', label.categoryId === categoryId);
+      for (const label of labels) {
+        labelSizes.delete(label.element);
+        label.element.classList.toggle('is-focused', label.toolId === toolId && Boolean(toolId));
+        label.element.hidden = label.toolId ? label.categoryId !== categoryId || Boolean(toolId && label.toolId !== toolId) : Boolean(categoryId);
+        if (label.element.hidden) label.line.style.display = 'none';
+        label.element.setAttribute('aria-expanded', String(Boolean(label.toolId && label.toolId === toolId)));
+      }
       art.selectMarker(markers.get(toolId));
-      for (const [id, mesh] of rooms) mesh.material.emissive.set(id === categoryId ? '#273d2f' : '#000000');
+      for (const [id, mesh] of rooms) mesh.material.emissive.set(id === categoryId ? '#101710' : '#000000');
       updateToolFeedback();
+    }
+    function arrive() {
+      controls.enabled = true;
+      if (intent === 'free') selectedCategory = areaAt(journey.snapshot().position);
+      highlight(selectedCategory, selectedTool);
+      if (intent === 'hub' || (intent === 'free' && !selectedCategory)) {
+        viewMode = 'hub'; container.dataset.view = viewMode;
+        for (const label of labels) { label.element.hidden = intent === 'hub' || Boolean(label.toolId); label.line.style.display = 'none'; }
+      }
+      moveTo(); emitJourney();
+    }
+    function begin(stop, categoryId, toolId, kind) {
+      try {
+        const here = journey.snapshot();
+        const stay = (kind === 'category' || kind === 'tool') && here.arrived && selectedCategory === categoryId;
+        const state = stop ? journey.request(stay ? here.position : stop, reduced.matches) : journey.cancel();
+        intent = kind;
+        highlight(categoryId, toolId);
+        if (!stop) { journey.cancel(); arrive(); return; } // generic future category
+        poseActor(state, 0, reduced.matches);
+        if (state.moving) {
+          tween = null; controls.enabled = false; viewMode = 'travel'; container.dataset.view = viewMode;
+          for (const label of labels) { label.element.hidden = Boolean(label.toolId); if (label.toolId) label.line.style.display = 'none'; }
+          emitJourney();
+        } else arrive();
+      } catch (error) { onError(error); }
+    }
+    function areaAt(position) {
+      // Only work-area footprints and their immediate approach count. The
+      // central aisle stays neutral even when a room is the nearest category.
+      return areas.filter(area => {
+        const gap = Math.hypot(Math.max(Math.abs(position[0]-area.center[0])-area.size[0]/2,0), Math.max(Math.abs(position[1]-area.center[1])-area.size[1]/2,0));
+        return gap <= .6;
+      }).sort((a,b) => Math.hypot(position[0]-a.center[0],position[1]-a.center[1]) - Math.hypot(position[0]-b.center[0],position[1]-b.center[1]))[0]?.id;
+    }
+    function focusPoint(point) {
+      if (!navigation.route(journey.snapshot().position,point)) { blocked(); return false; }
+      begin(point,undefined,undefined,'free'); return true;
     }
     function resize() {
       if (!container.clientWidth || !container.clientHeight) return;
@@ -131,6 +253,9 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(Math.min(devicePixelRatio, small() ? 1.5 : 2));
       renderer.setSize(container.clientWidth, container.clientHeight);
+      for (const label of labels) labelSizes.delete(label.element);
+      requestRender(true);
+      if (cameraReady && !journey.snapshot().moving) moveTo();
     }
     const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
     const hit = (event) => {
@@ -151,19 +276,33 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       down = null;
       pointers.delete(event.pointerId);
       if (!tap || tap.id !== event.pointerId || Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 6) return;
-      const data = hit(event)?.userData;
-      if (data?.kind === 'tool') onSelectTool(data.categoryId, data.toolId);
-      else if (data?.kind === 'category') onSelectCategory(data.categoryId);
+      const selectable = hit(event); // update the ground ray using the current camera
+      const physical = raycaster.intersectObjects(scene.children,true).find(item => item.object !== destinationMarker && item.object.visible);
+      // Decorative screen fronts sit just ahead of tool markers. Accept the
+      // same device, while a distant marker behind a wall cannot receive taps.
+      const data = physical?.object.userData.kind === 'tool' ? physical.object.userData
+        : physical && physical.point.y > .19 && selectable?.userData.kind === 'tool' && physical.point.distanceTo(selectable.position) < .5
+          ? selectable.userData : physical?.object.userData;
+      if (data?.kind === 'tool') {
+        if (!journey.snapshot().moving && journey.snapshot().arrived && selectedCategory === data.categoryId) onSelectTool(data.categoryId, data.toolId);
+        else onSelectCategory(data.categoryId);
+      }
+      else if (physical && physical.point.y <= .19) {
+        const point = [physical.point.x,physical.point.z];
+        if (navigation.route(journey.snapshot().position,point)) {
+          feedback.hidden = true; if (onSelectPoint) onSelectPoint(point); else focusPoint(point);
+        } else blocked(event);
+      } else blocked(event);
     }
     function pointerMove(event) {
       if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) down = null;
       const mesh = hit(event);
       canvas.style.cursor = mesh ? 'pointer' : 'grab';
-      hoveredTool = mesh?.userData.toolId;
-      updateToolFeedback();
+      const next = mesh?.userData.toolId;
+      if (next !== hoveredTool) { hoveredTool = next; updateToolFeedback(); }
     }
     function pointerCancel(event) { pointers.delete(event.pointerId); down = null; }
-    function pointerLeave() { hoveredTool = undefined; updateToolFeedback(); }
+    function pointerLeave() { if (hoveredTool) { hoveredTool = undefined; updateToolFeedback(); } }
     function cancelTween() { tween = null; }
     function contextLost(event) { event.preventDefault(); onError(new Error('WebGL context lost')); }
     listen(canvas, 'pointerdown', pointerDown);
@@ -173,57 +312,117 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     listen(canvas, 'pointercancel', pointerCancel);
     listen(canvas, 'pointerleave', pointerLeave);
     listen(controls, 'start', cancelTween);
+    listen(controls, 'change', () => requestRender(true));
+    listen(reduced, 'change', () => {
+      const state = journey.snapshot();
+      if (reduced.matches && state.moving) { poseActor(journey.request(state.destination === 'point' ? state.target : state.destination, true), 0, true); arrive(); }
+      else if (reduced.matches && tween) moveTo();
+    });
     observer = new ResizeObserver(resize);
     cleanups.push(() => observer.disconnect());
     observer.observe(container);
+    document.fonts?.ready.then(() => {
+      if (destroyed) return;
+      for (const label of labels) labelSizes.delete(label.element);
+      requestRender(true);
+    });
+    function placeLabels() {
+      const width = container.clientWidth, height = container.clientHeight;
+      const occupied = [];
+      const active = [];
+      for (const label of labels) {
+        const { element, position, toolId, categoryId, line } = label;
+        const travelling = viewMode === 'travel';
+        const freeOverview = viewMode === 'hub' && intent === 'free';
+        const eligible = travelling ? !toolId : viewMode === 'hub' && intent !== 'free' ? false : toolId ? categoryId === selectedCategory && (!selectedTool || toolId === selectedTool) : !selectedCategory;
+        target.copy(position).project(camera);
+        const finite = Number.isFinite(target.x) && Number.isFinite(target.y) && Number.isFinite(target.z);
+        // Keep anchors current even while hidden, ready for a category transition.
+        if (line && finite) {
+          line.setAttribute('x1', (target.x + 1) * width / 2);
+          line.setAttribute('y1', (1 - target.y) * height / 2);
+        }
+        const behind = !finite || target.z > 1 || target.z < -1;
+        element.hidden = !eligible || (!(travelling || freeOverview) && behind);
+        if (line) line.style.display = element.hidden || behind ? 'none' : '';
+        if (element.hidden) continue;
+        active.push({ label, x: finite ? (target.x + 1) * width / 2 : width / 2, y: finite ? (1 - target.y) * height / 2 : height / 2 });
+      }
+      // Labels stay attached to their devices, with collision-free touch targets.
+      active.sort((a, b) => a.y - b.y || a.x - b.x);
+      for (const { label: { element, line, categoryId }, x, y } of active) {
+        if (!labelSizes.has(element)) labelSizes.set(element, { w: element.offsetWidth, h: element.offsetHeight });
+        const { w, h } = labelSizes.get(element);
+        const clampX = value => Math.max(10, Math.min(width - w - 10, value));
+        const clampY = value => Math.max(10, Math.min(height - h - 10, value));
+        const candidates = [{ x: clampX(x - w / 2), y: clampY(y - h - (line ? 20 : 0)) }];
+        for (let cy = 12; cy < height - h; cy += h + 12) {
+          for (let cx = 12; cx < width - w; cx += w + 12) candidates.push({ x: cx, y: cy });
+        }
+        candidates.sort((a, b) => Math.hypot(a.x + w / 2 - x, a.y + h - y) - Math.hypot(b.x + w / 2 - x, b.y + h - y));
+        const dock = (viewMode === 'overview' || viewMode === 'travel' || (viewMode === 'hub' && intent === 'free')) && width >= 300 ? resolveLayout(categoryId).labelDock : undefined;
+        const location = dock ? {
+          x: dock === 'bottom' ? (width - w) / 2 : dock.startsWith('left') ? 12 : width - w - 12,
+          y: dock === 'bottom' ? height - h - 8 : dock.endsWith('top') ? 8 : height * .35,
+        } : candidates.find(p => occupied.every(r => p.x + w + 8 <= r.x || r.x + r.w + 8 <= p.x || p.y + h + 8 <= r.y || r.y + r.h + 8 <= p.y)) || candidates[0];
+        occupied.push({ ...location, w, h });
+        element.style.left = `${location.x}px`;
+        element.style.top = `${location.y}px`;
+        if (line) {
+          line.setAttribute('x2', location.x + w / 2); line.setAttribute('y2', location.y + h / 2);
+        }
+      }
+    }
     function render(now) {
+      frame = 0;
       if (destroyed || paused) return;
       try {
-        if (tween) {
+        const seconds = lastTime === null ? 0 : Math.min(.25, Math.max(0, (now - lastTime) / 1000)); lastTime = now;
+        const wasMoving = journey.snapshot().moving;
+        const state = journey.advance(seconds);
+        poseActor(state, seconds, reduced.matches);
+        if (wasMoving && !state.moving) arrive();
+        if (state.moving) {
+          const pose = framing(), blend = 1 - Math.exp(-seconds * 6);
+          camera.position.lerp(pose.position, blend); controls.target.lerp(pose.target, blend);
+        } else if (tween) {
           const t = Math.min(1, (now - tween.start) / 750);
           const eased = t < .5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
           camera.position.lerpVectors(tween.from, tween.end, eased);
           controls.target.lerpVectors(tween.target, tween.next, eased);
           if (t === 1) tween = null;
         }
-        controls.update();
+        const cameraChanged = controls.update();
         renderer.render(scene, camera);
-        for (const { element, position } of labels) {
-          target.copy(position).project(camera);
-          element.style.left = `${(target.x + 1) * container.clientWidth / 2}px`;
-          element.style.top = `${(1 - target.y) * container.clientHeight / 2}px`;
-          element.hidden = target.z > 1 || target.z < -1;
-        }
-        const toolId = hoveredTool || selectedTool;
-        const marker = markers.get(toolId);
-        toolLabel.hidden = !marker;
-        if (marker) {
-          target.copy(marker.position);
-          target.y += .7;
-          target.project(camera);
-          toolLabel.textContent = toolNames.get(toolId);
-          toolLabel.style.left = `${(target.x + 1) * container.clientWidth / 2}px`;
-          toolLabel.style.top = `${(1 - target.y) * container.clientHeight / 2}px`;
-          toolLabel.hidden = target.z > 1 || target.z < -1;
-        }
-        frame = requestAnimationFrame(render);
+        if (labelsDirty || cameraChanged) { placeLabels(); labelsDirty = false; }
+        // Continue only while motion or OrbitControls damping changes the scene.
+        const turning = Math.abs(Math.atan2(Math.sin(facing), Math.cos(facing))) > 1e-5;
+        if (state.moving || tween || cameraChanged || turning) requestRender();
+        if (!frame) lastTime = null;
       } catch (error) { onError(error); }
     }
     resize();
-    controls.target.set(0, 0, 2);
-    camera.position.set(...(small() ? [17, 21.4, 27] : [15, 20, 26]));
+    const initialFrame = framing();
+    controls.target.copy(initialFrame.target);
+    camera.position.copy(initialFrame.position);
     controls.update();
+    cameraReady = true;
     renderer.render(scene, camera); // fail initialization before reporting ready
-    frame = requestAnimationFrame(render);
+    requestRender(true);
     return {
-      focusCategory(id) { highlight(id); moveTo(resolveLayout(id).position); },
-      focusTool(categoryId, toolId) { highlight(categoryId, toolId); moveTo(markers.get(toolId)?.position.toArray() || resolveLayout(categoryId).position); },
-      resetView() { highlight(); moveTo([0, 0, 2], true); },
+      focusPoint,
+      focusCategory(id) { begin(NAVIGATION_PLAN.stops[id], id, undefined, 'category'); },
+      focusTool(categoryId, toolId) { begin(NAVIGATION_PLAN.stops[categoryId], categoryId, toolId, 'tool'); },
+      focusHub() { begin('hub', undefined, undefined, 'hub'); },
+      getJourneyState: journeyState,
+      resetView() { journey.cancel(); intent = 'overview'; controls.enabled = true; highlight(); moveTo(); emitJourney(); },
       setPaused(value) {
         if (paused === value || destroyed) return;
         paused = value;
+        lastTime = null;
         cancelAnimationFrame(frame);
-        if (!paused) frame = requestAnimationFrame(render);
+        frame = 0;
+        if (!paused) requestRender(true);
       },
       destroy,
     };

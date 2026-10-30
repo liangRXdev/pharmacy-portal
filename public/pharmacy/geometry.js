@@ -67,6 +67,20 @@ export function createScreenTexture(kind, resources) {
     title('AUC / TDM');
     line([[30, 245], [85, 242], [125, 210], [155, 112], [195, 135], [250, 185], [330, 224], [470, 245]]);
     ctx.globalAlpha = .4; line([[30, 270], [470, 270]]); ctx.globalAlpha = 1;
+  } else if (kind === 'lab') {
+    title('RENAL / LAB');
+    line([[40, 270], [470, 270]]);
+    for (let i = 0; i < 3; i++) {
+      ctx.strokeRect(75 + i * 130, 105, 70, 130);
+      ctx.fillRect(82 + i * 130, 165 - i * 15, 56, 63 + i * 15);
+    }
+  } else if (kind === 'signal') {
+    title('ADR SIGNAL REVIEW');
+    line([[40, 250], [470, 250]]);
+    line([[70, 210], [160, 180], [250, 205], [340, 115], [440, 150]]);
+    for (const [x, y] of [[70,210], [160,180], [250,205], [340,115], [440,150]]) {
+      ctx.fillStyle = '#dfb477'; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+    }
   } else if (kind === 'ebm') {
     title('EVIDENCE');
     line([[280, 80], [280, 290]]);
@@ -132,22 +146,27 @@ export function createChair(kit, x, z) {
   kit.box([.12, .38, .12], [x, .16, z], PALETTE.frame);
 }
 export function createPharmacist(source, x, z, baseY = 0) {
-  const kit = {
-    box: (size, [px, py, pz], ...rest) => source.box(size, [px, py + baseY, pz], ...rest),
-    sphere: (size, [px, py, pz], ...rest) => source.sphere(size, [px, py + baseY, pz], ...rest),
-  };
+  const wrap = target => ({
+    box: (size, [px, py, pz], ...rest) => target.box(size, [px, py + baseY, pz], ...rest),
+    sphere: (size, [px, py, pz], ...rest) => target.sphere(size, [px, py + baseY, pz], ...rest),
+  });
+  const kit = wrap(source);
   for (const dx of [-.13, .13]) {
-    kit.box([.16, .55, .2], [x + dx, .33, z], PALETTE.hair);
-    kit.box([.2, .12, .32], [x + dx, .08, z + .05], PALETTE.hair);
+    const leg = wrap(source.part?.(`leg-${dx < 0 ? 'left' : 'right'}`, [x + dx, baseY + .6, z]) || source);
+    leg.box([.16, .55, .2], [x + dx, .33, z], PALETTE.hair);
+    leg.box([.2, .12, .32], [x + dx, .08, z + .05], PALETTE.hair);
   }
   kit.box([.52, .65, .32], [x, .91, z], PALETTE.paper);
   kit.box([.06, .44, .335], [x, .94, z], PALETTE.teal);
   kit.box([.12, .16, .02], [x + .15, 1.03, z + .17], PALETTE.clinical);
   kit.sphere([.23, .25, .22], [x, 1.47, z], PALETTE.skin);
   kit.box([.44, .13, .38], [x, 1.67, z - .025], PALETTE.hair);
+  for (const dx of [-.08, .08]) kit.box([.035, .035, .015], [x + dx, 1.49, z + .22], PALETTE.hair);
+  kit.box([.04, .06, .035], [x, 1.43, z + .225], PALETTE.skin);
   for (const dx of [-.34, .34]) {
-    kit.box([.16, .45, .22], [x + dx, 1.02, z + .06], PALETTE.paper, [.35, 0, dx > 0 ? .16 : -.16]);
-    kit.sphere([.095, .09, .09], [x + dx, .83, z + .17], PALETTE.skin);
+    const arm = wrap(source.part?.(`arm-${dx < 0 ? 'left' : 'right'}`, [x + dx, baseY + 1.2, z]) || source);
+    arm.box([.16, .45, .22], [x + dx, 1.02, z + .06], PALETTE.paper, [.35, 0, dx > 0 ? .16 : -.16]);
+    arm.sphere([.095, .09, .09], [x + dx, .83, z + .17], PALETTE.skin);
   }
 }
 

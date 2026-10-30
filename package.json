@@ -5,7 +5,8 @@
     "build:three": "node tools/build-three.mjs",
     "check:three": "node tools/build-three.mjs --check",
     "test:pharmacy": "node tests/pharmacy-smoke.mjs && node tests/pharmacy-journey.mjs",
-    "test:pharmacy:performance": "node tests/pharmacy-performance.mjs"
+    "test:pharmacy:performance": "node tests/pharmacy-performance.mjs",
+    "test:pharmacy:free": "node tests/pharmacy-free.mjs && node tests/pharmacy-free-ui.mjs"
   },
   "devDependencies": {
     "three": "0.180.0",

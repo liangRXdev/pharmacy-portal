@@ -28,19 +28,22 @@ export function routeFromPosition(plan, position, destination) {
   return best;
 }
 
-export function createJourney(plan, speed = 2.6) {
+export function createJourney(plan, speed = 2.6, navigation) {
   if (!Number.isFinite(speed) || speed <= 0) throw new Error('Invalid journey speed');
   const start = plan.nodes.find(node => node.id === plan.start)?.position;
   if (!finitePoint(start)) throw new Error('Missing journey entrance');
-  let position = start.slice(), destination = null, pending = [], revision = 0, travelled = 0, yaw = 0;
-  const snapshot = () => ({ position: position.slice(), destination, moving: pending.length > 0, arrived: destination && !pending.length ? destination : null, revision, travelled, yaw });
+  let position = start.slice(), destination = null, target = null, pending = [], revision = 0, travelled = 0, yaw = 0;
+  const snapshot = () => ({ position: position.slice(), target: target?.slice(), destination, moving: pending.length > 0, arrived: destination && !pending.length ? destination : null, revision, travelled, yaw });
   function request(next, instant = false) {
-    const route = routeFromPosition(plan, position, next); // validate before changing state
-    if (next !== destination || !pending.length) {
-      destination = next; pending = route.points.slice(1); revision++;
+    const endpoint = Array.isArray(next) ? next : plan.nodes.find(node => node.id === next)?.position;
+    const route = navigation ? navigation.route(position,endpoint) : routeFromPosition(plan, position, next);
+    if (!route) throw new Error('Destination is not reachable'); // preserve the previous journey
+    const id = Array.isArray(next) ? 'point' : next;
+    if (id !== destination || !target || distance(target,endpoint) > 1e-8 || !pending.length) {
+      destination = id; target = endpoint.slice(); pending = route.points.slice(1).filter(p => distance(position,p) > 1e-8); revision++;
     }
     if (instant) {
-      position = plan.nodes.find(node => node.id === next).position.slice();
+      position = endpoint.slice();
       pending = [];
     }
     return snapshot();
@@ -61,6 +64,6 @@ export function createJourney(plan, speed = 2.6) {
     return snapshot();
   }
   return { request, advance, snapshot,
-    cancel() { pending = []; destination = null; revision++; return snapshot(); },
+    cancel() { pending = []; destination = null; target = null; revision++; return snapshot(); },
   };
 }

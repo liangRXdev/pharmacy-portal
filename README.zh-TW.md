@@ -92,13 +92,14 @@ MIT
 
 `/pharmacy/` 是獨立的原生 ES module / Three.js 探索頁；首頁維持原有工具入口。
 工具名稱、描述、連結與分類均讀取 `/tools.json`，`scene-layout.js` 僅保存空間配置。
-正常模式以 3D 地圖為唯一導覽入口：點選工作區，藥師沿固定通道步行、相機跟隨，抵達後顯示該區各工具的編號與名稱，再點選設備開啟介紹面板。途中可改目的地；reduced motion 直接到站。
+正常模式以 3D 地圖為唯一導覽入口：點地面自由移動並繞過家具，或點選工作區快速前往；相機跟隨，在工作區附近停下後顯示工具名稱與介紹入口。途中可改目的地；無效點保留原行程，reduced motion 直接到站。
 地圖標籤支援鍵盤與手機觸控；地圖下方不顯示分類列或工具列表。
 WebGL 失敗時才顯示文字備援；`?no3d=1` 可測試。詳見 [地圖導覽規格](docs/map-navigation.md)。
 Phase 1 架構保留，場景已加入五區代表性家具、藥架與中央藥師；詳見 [Phase 2 美術與驗證紀錄](docs/phase2-art.md)。
 後續順序：R2 五區辨識與配置 → R3 作業細節與路線定案 → R4 全景／探索視角驗收 → [R5 藥師移動式探索](docs/redesign-r5.md) → Phase 3 效能驗證 → Phase 4 發布檢查。
 行走空間與停靠點提前於 R2–R3 規劃；R4 同時驗收桌面／手機的角色比例及兩種取景，依動線需求決定是否擴大樓板。
 目前 R1–R5 已由使用者驗收並提交；[Phase 3](docs/phase3-performance.md) 已完成本地按需繪製與標籤更新優化，16 組 smoke、1,586 項移動檢查及閒置／互動喚醒測試通過。實機效能待驗證，尚未部署。
+新增 [R6 自由點選移動](docs/redesign-r6.md) 已完成本地實作，等待桌機／手機影片與互動預覽驗收。
 
 ```bash
 npm ci
@@ -108,6 +109,7 @@ node tools/check-portal.js
 npx playwright install --with-deps chromium
 npm run test:pharmacy
 npm run test:pharmacy:performance # 閒置零 RAF／繪製／標籤寫入，互動可喚醒
+npm run test:pharmacy:free # 自由繞障、精確選點、手機觸控與 history
 node tools/preview-pharmacy.mjs # 套用 CSP headers 的本機預覽，預設 port 4173
 python3 -m http.server 8000 --directory public
 ```

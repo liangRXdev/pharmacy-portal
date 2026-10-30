@@ -8,8 +8,9 @@ import { createJourney } from './journey.js';
 import { createWalkingPharmacist, measureWalkingProfile } from './pharmacist.js';
 import { readSceneBounds } from './spatial-audit.js';
 import { validateNavigation } from './navigation.js';
+import { createWalkable } from './walkable.js';
 
-export function createWorld({ container, categories, tools, onSelectCategory, onSelectTool, onJourneyState, onError }) {
+export function createWorld({ container, categories, tools, onSelectCategory, onSelectTool, onSelectPoint, onJourneyState, onError }) {
   const resources = [], cleanups = [];
   let renderer, canvas, controls, observer;
   let frame = 0, paused = false, destroyed = false, tween = null;
@@ -138,7 +139,21 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     });
     const validation = validateNavigation(NAVIGATION_PLAN, obstacles, profile, FLOOR_PLAN, areas);
     if (!validation.ok) throw new Error(`Walking layout invalid: ${validation.issues[0]}`);
-    const journey = createJourney(NAVIGATION_PLAN), avatar = createWalkingPharmacist(scene, resources);
+    const navigation = createWalkable({ floor: FLOOR_PLAN, obstacles, profile, plan: NAVIGATION_PLAN });
+    const journey = createJourney(NAVIGATION_PLAN, 2.6, navigation), avatar = createWalkingPharmacist(scene, resources);
+    const destinationMarker = box([.28,.04,.28], [0,.2,0], PALETTE.teal);
+    destinationMarker.visible = false;
+    const feedback = document.createElement('div'); feedback.className = 'walk-feedback'; feedback.role = 'status'; feedback.hidden = true;
+    container.append(feedback);
+    let feedbackTimer;
+    cleanups.push(() => { clearTimeout(feedbackTimer); feedback.remove(); });
+    function blocked(event) {
+      const rect = canvas.getBoundingClientRect();
+      feedback.textContent = '此處無法通行'; feedback.hidden = false;
+      feedback.style.left = `${Math.max(12,Math.min(rect.width - 150, (event?.clientX ?? rect.left + rect.width / 2) - rect.left))}px`;
+      feedback.style.top = `${Math.max(12,Math.min(rect.height - 50, (event?.clientY ?? rect.top + rect.height / 2) - rect.top))}px`;
+      clearTimeout(feedbackTimer); feedbackTimer = setTimeout(() => { feedback.hidden = true; }, 1600);
+    }
     avatar.pose(journey.snapshot());
     let intent = 'overview', lastTime = null, facing = 0;
     function journeyState() {
@@ -148,6 +163,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     }
     function emitJourney() {
       const state = journeyState();
+      destinationMarker.visible = state.moving && intent === 'free';
+      if (state.target) destinationMarker.position.set(state.target[0],.2,state.target[1]);
       container.dataset.travel = state.moving ? 'moving' : state.arrived ? 'arrived' : 'idle';
       container.dataset.destination = state.destination || '';
       onJourneyState?.(state);
@@ -193,19 +210,22 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     }
     function arrive() {
       controls.enabled = true;
+      if (intent === 'free') selectedCategory = areaAt(journey.snapshot().position);
       highlight(selectedCategory, selectedTool);
-      if (intent === 'hub') {
+      if (intent === 'hub' || (intent === 'free' && !selectedCategory)) {
         viewMode = 'hub'; container.dataset.view = viewMode;
-        for (const label of labels) { label.element.hidden = true; label.line.style.display = 'none'; }
+        for (const label of labels) { label.element.hidden = intent === 'hub' || Boolean(label.toolId); label.line.style.display = 'none'; }
       }
       moveTo(); emitJourney();
     }
     function begin(stop, categoryId, toolId, kind) {
       try {
+        const here = journey.snapshot();
+        const stay = (kind === 'category' || kind === 'tool') && here.arrived && selectedCategory === categoryId;
+        const state = stop ? journey.request(stay ? here.position : stop, reduced.matches) : journey.cancel();
         intent = kind;
         highlight(categoryId, toolId);
         if (!stop) { journey.cancel(); arrive(); return; } // generic future category
-        const state = journey.request(stop, reduced.matches);
         poseActor(state, 0, reduced.matches);
         if (state.moving) {
           tween = null; controls.enabled = false; viewMode = 'travel'; container.dataset.view = viewMode;
@@ -213,6 +233,18 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
           emitJourney();
         } else arrive();
       } catch (error) { onError(error); }
+    }
+    function areaAt(position) {
+      // Only work-area footprints and their immediate approach count. The
+      // central aisle stays neutral even when a room is the nearest category.
+      return areas.filter(area => {
+        const gap = Math.hypot(Math.max(Math.abs(position[0]-area.center[0])-area.size[0]/2,0), Math.max(Math.abs(position[1]-area.center[1])-area.size[1]/2,0));
+        return gap <= .6;
+      }).sort((a,b) => Math.hypot(position[0]-a.center[0],position[1]-a.center[1]) - Math.hypot(position[0]-b.center[0],position[1]-b.center[1]))[0]?.id;
+    }
+    function focusPoint(point) {
+      if (!navigation.route(journey.snapshot().position,point)) { blocked(); return false; }
+      begin(point,undefined,undefined,'free'); return true;
     }
     function resize() {
       if (!container.clientWidth || !container.clientHeight) return;
@@ -244,12 +276,23 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       down = null;
       pointers.delete(event.pointerId);
       if (!tap || tap.id !== event.pointerId || Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 6) return;
-      const data = hit(event)?.userData;
+      const selectable = hit(event); // update the ground ray using the current camera
+      const physical = raycaster.intersectObjects(scene.children,true).find(item => item.object !== destinationMarker && item.object.visible);
+      // Decorative screen fronts sit just ahead of tool markers. Accept the
+      // same device, while a distant marker behind a wall cannot receive taps.
+      const data = physical?.object.userData.kind === 'tool' ? physical.object.userData
+        : physical && physical.point.y > .19 && selectable?.userData.kind === 'tool' && physical.point.distanceTo(selectable.position) < .5
+          ? selectable.userData : physical?.object.userData;
       if (data?.kind === 'tool') {
         if (!journey.snapshot().moving && journey.snapshot().arrived && selectedCategory === data.categoryId) onSelectTool(data.categoryId, data.toolId);
         else onSelectCategory(data.categoryId);
       }
-      else if (data?.kind === 'category') onSelectCategory(data.categoryId);
+      else if (physical && physical.point.y <= .19) {
+        const point = [physical.point.x,physical.point.z];
+        if (navigation.route(journey.snapshot().position,point)) {
+          feedback.hidden = true; if (onSelectPoint) onSelectPoint(point); else focusPoint(point);
+        } else blocked(event);
+      } else blocked(event);
     }
     function pointerMove(event) {
       if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) down = null;
@@ -272,7 +315,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     listen(controls, 'change', () => requestRender(true));
     listen(reduced, 'change', () => {
       const state = journey.snapshot();
-      if (reduced.matches && state.moving) { poseActor(journey.request(state.destination, true), 0, true); arrive(); }
+      if (reduced.matches && state.moving) { poseActor(journey.request(state.destination === 'point' ? state.target : state.destination, true), 0, true); arrive(); }
       else if (reduced.matches && tween) moveTo();
     });
     observer = new ResizeObserver(resize);
@@ -290,7 +333,8 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
       for (const label of labels) {
         const { element, position, toolId, categoryId, line } = label;
         const travelling = viewMode === 'travel';
-        const eligible = travelling ? !toolId : viewMode === 'hub' ? false : toolId ? categoryId === selectedCategory && (!selectedTool || toolId === selectedTool) : !selectedCategory;
+        const freeOverview = viewMode === 'hub' && intent === 'free';
+        const eligible = travelling ? !toolId : viewMode === 'hub' && intent !== 'free' ? false : toolId ? categoryId === selectedCategory && (!selectedTool || toolId === selectedTool) : !selectedCategory;
         target.copy(position).project(camera);
         const finite = Number.isFinite(target.x) && Number.isFinite(target.y) && Number.isFinite(target.z);
         // Keep anchors current even while hidden, ready for a category transition.
@@ -299,7 +343,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
           line.setAttribute('y1', (1 - target.y) * height / 2);
         }
         const behind = !finite || target.z > 1 || target.z < -1;
-        element.hidden = !eligible || (!travelling && behind);
+        element.hidden = !eligible || (!(travelling || freeOverview) && behind);
         if (line) line.style.display = element.hidden || behind ? 'none' : '';
         if (element.hidden) continue;
         active.push({ label, x: finite ? (target.x + 1) * width / 2 : width / 2, y: finite ? (1 - target.y) * height / 2 : height / 2 });
@@ -316,7 +360,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
           for (let cx = 12; cx < width - w; cx += w + 12) candidates.push({ x: cx, y: cy });
         }
         candidates.sort((a, b) => Math.hypot(a.x + w / 2 - x, a.y + h - y) - Math.hypot(b.x + w / 2 - x, b.y + h - y));
-        const dock = ((small() && viewMode === 'overview') || viewMode === 'travel') && width >= 300 ? resolveLayout(categoryId).labelDock : undefined;
+        const dock = (viewMode === 'overview' || viewMode === 'travel' || (viewMode === 'hub' && intent === 'free')) && width >= 300 ? resolveLayout(categoryId).labelDock : undefined;
         const location = dock ? {
           x: dock === 'bottom' ? (width - w) / 2 : dock.startsWith('left') ? 12 : width - w - 12,
           y: dock === 'bottom' ? height - h - 8 : dock.endsWith('top') ? 8 : height * .35,
@@ -366,6 +410,7 @@ export function createWorld({ container, categories, tools, onSelectCategory, on
     renderer.render(scene, camera); // fail initialization before reporting ready
     requestRender(true);
     return {
+      focusPoint,
       focusCategory(id) { begin(NAVIGATION_PLAN.stops[id], id, undefined, 'category'); },
       focusTool(categoryId, toolId) { begin(NAVIGATION_PLAN.stops[categoryId], categoryId, toolId, 'tool'); },
       focusHub() { begin('hub', undefined, undefined, 'hub'); },

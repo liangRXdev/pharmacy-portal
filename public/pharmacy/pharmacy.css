@@ -357,6 +357,17 @@ footer {
 }
 #world[data-view=tool] .map-tool span { display: none; }
 .room-label:focus-visible { z-index: 3; }
+.walk-feedback {
+  position: absolute;
+  z-index: 5;
+  padding: 8px 12px;
+  border: 1px solid #8a4b08;
+  border-radius: 6px;
+  background: #fffdf3;
+  color: #8a4b08;
+  pointer-events: none;
+  font-size: 14px;
+}
 @media (max-width: 767px) {
   #world[data-view=overview] { height: 340px; }
   #world[data-view=hub] { height: 420px; }

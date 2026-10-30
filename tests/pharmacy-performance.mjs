@@ -40,8 +40,8 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(server.base + '/pharmacy/');
     await page.waitForSelector('html[data-world="ready"]');
-    const sample = async (state, ms = 650) => {
-      const before = await page.evaluate(() => ({ ...window.perfCounts, time: performance.now() }));
+    const sample = async (state, ms = 650, initial) => {
+      const before = initial ?? await page.evaluate(() => ({ ...window.perfCounts, time: performance.now() }));
       await page.waitForTimeout(ms);
       const after = await page.evaluate(() => ({ ...window.perfCounts, time: performance.now() }));
       const row = { device, state, milliseconds: Math.round(after.time - before.time), frames: after.frames - before.frames, callbacks: after.callbacks - before.callbacks, drawCalls: after.calls - before.calls, labelWrites: after.labels - before.labels };
@@ -93,8 +93,13 @@ try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.waitForSelector('#world[data-travel="arrived"][data-destination="ebm"]');
     await idle('arrival-idle');
+    // A fast renderer can finish ResizeObserver work before setViewportSize
+    // resolves. Include the operation itself in the measurement window.
+    const oldBufferWidth = await canvas.getAttribute('width');
+    const beforeResize = await page.evaluate(() => ({ ...window.perfCounts, time: performance.now() }));
     await page.setViewportSize({ width: viewport.width - 20, height: viewport.height - 30 });
-    const resize = await sample('resize'); assert(resize.drawCalls > 0 && resize.labelWrites > 0);
+    const resize = await sample('resize', 650, beforeResize); assert(resize.drawCalls > 0 && resize.labelWrites > 0);
+    assert.notEqual(await canvas.getAttribute('width'), oldBufferWidth, 'resize updates the actual WebGL drawing buffer');
     await idle('resize-settled');
     assert.deepEqual(errors, []);
     await context.close();

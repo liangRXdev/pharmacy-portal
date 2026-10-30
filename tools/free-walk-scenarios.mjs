@@ -8,7 +8,8 @@ export async function instrumentFreeWorld(page) {
     const response=await route.fetch();
     const body=(await response.text())
       .replaceAll('renderer.render(scene, camera);','window.__freeCamera = camera; window.__freeScene = scene; renderer.render(scene, camera);')
-      .replace('const point = [physical.point.x,physical.point.z];','const point = [physical.point.x,physical.point.z]; window.__freeClicked = point.slice();')
+      .replace('const point = [physical.point.x,physical.point.z];','const point = [physical.point.x,physical.point.z]; window.__freeClicked = point.slice(); window.__freeClickCount = (window.__freeClickCount || 0) + 1;')
+      .replace('function blocked(event) {','function blocked(event) { window.__freeRejected = (window.__freeRejected || 0) + 1;')
       .replace('function journeyState() {','window.__freeState = journeyState; window.__freeNavigation = navigation;\n    function journeyState() {');
     await route.fulfill({response,body});
   });
@@ -25,7 +26,7 @@ export async function runFreeScenarios(page,base,{device='desktop',output}={}) {
     return page.evaluate(async({candidates,blocked,fallback})=>{
       const THREE=await import('/pharmacy/vendor/three-lite.js'),canvas=document.querySelector('#world canvas'),rect=canvas.getBoundingClientRect();
       const ray=new THREE.Raycaster(),camera=window.__freeCamera,scene=window.__freeScene,nav=window.__freeNavigation;
-      const current=window.__freeState().position;
+      const currentState=window.__freeState(),current=currentState.position;
       const screens=blocked?[[.5,.03],[.95,.9],[.05,.9],[.5,.2],[.85,.5],[.15,.5]].map(([x,y])=>[rect.x+x*rect.width,rect.y+y*rect.height]):candidates.map(([x,z])=>{
         const p=new THREE.Vector3(x,.145,z).project(camera);return [rect.x+(p.x+1)*rect.width/2,rect.y+(1-p.y)*rect.height/2];
       });
@@ -35,19 +36,40 @@ export async function runFreeScenarios(page,base,{device='desktop',output}={}) {
         ray.setFromCamera(new THREE.Vector2((x-rect.x)/rect.width*2-1,1-(y-rect.y)/rect.height*2),camera);
         const hit=ray.intersectObjects(scene.children,true).find(h=>h.object.visible);
         if(blocked){if(!hit || (hit.object.userData.kind!=='tool' && hit.point.y>.19)) return {x,y};}
-        else if(hit && hit.point.y<=.19){const point=[hit.point.x,hit.point.z],route=nav.route(current,point);if(route && (!fallback || Math.hypot(current[0]-point[0],current[1]-point[1])>.65))return {x,y,point,segments:route.points.length-1};}
+        else if(hit && hit.point.y<=.19){
+          const point=[hit.point.x,hit.point.z],route=nav.route(current,point);
+          if(fallback && currentState.target && Math.hypot(point[0]-currentState.target[0],point[1]-currentState.target[1])<.5)continue;
+          const margin=!fallback||[[.25,0],[-.25,0],[0,.25],[0,-.25]].every(([dx,dz])=>nav.contains([point[0]+dx,point[1]+dz]));
+          if(route && margin && (!fallback || Math.hypot(current[0]-point[0],current[1]-point[1])>.65))return {x,y,point,segments:route.points.length-1};
+        }
       }
       return null;
     },{candidates,blocked,fallback});
   }
   const clickFloor=async(candidates,fallback=false)=>{
-    const target=await locate(candidates,false,fallback);assert(target,`${device}: a visible reachable ground point must exist`);
-    const revision=(await state()).revision;
-    await tap(target.x,target.y);
-    await page.waitForFunction(revision=>window.__freeState().revision>revision,revision);
-    const clicked=await page.evaluate(()=>window.__freeClicked),accepted=await state();
-    assert.deepEqual(accepted.target,clicked,'actual ground hit is preserved without snapping');
-    return {...target,point:accepted.target};
+    for(let attempt=0;attempt<3;attempt++){
+      const target=await locate(candidates,false,fallback);assert(target,`${device}: a visible reachable ground point must exist`);
+      const before=await state(),observed=await page.evaluate(()=>({rejections:window.__freeRejected||0,clicks:window.__freeClickCount||0}));
+      await tap(target.x,target.y);
+      const accepted=await state();
+      if(accepted.revision===before.revision){
+        // Native input and coordinate observation cross separate browser tasks.
+        // If the following camera moves furniture under the pointer, the
+        // product must explicitly reject it and preserve the old destination.
+        const after=await page.evaluate(()=>({rejections:window.__freeRejected||0,clicks:window.__freeClickCount||0,point:window.__freeClicked}));
+        assert.deepEqual(accepted.target,before.target,'moving-camera obstruction preserves the previous journey');
+        if(after.rejections!==observed.rejections+1){
+          // Repeating the exact current destination is intentionally idempotent.
+          assert.equal(after.clicks,observed.clicks+1,'an unhandled floor click must fail rather than silently retry');
+          assert.deepEqual(after.point,before.target,'a handled non-rejected click without a new revision must be the same destination');
+        }
+        continue;
+      }
+      const clicked=await page.evaluate(()=>window.__freeClicked);
+      assert.deepEqual(accepted.target,clicked,'actual ground hit is preserved without snapping');
+      return {...target,point:accepted.target};
+    }
+    assert.fail(`${device}: no new destination after three explicitly handled native clicks`);
   };
   const arrived=async()=>{await page.waitForFunction(()=>Boolean(window.__freeState().arrived));await page.waitForTimeout(850);};
   await page.goto(base+'/pharmacy/');await page.waitForSelector('html[data-world="ready"]');await page.waitForTimeout(850);

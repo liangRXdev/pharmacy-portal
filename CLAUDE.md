@@ -37,4 +37,4 @@
 
 ## SEO 現況
 
-Tier 1 已完成（meta / OG / JSON-LD / robots.txt / sitemap.xml）。Tier 2、3 未做。
+Tier 1 已完成（meta / OG / JSON-LD / robots.txt / sitemap.xml）；OG 圖 `public/og-image.png` 由 `node tools/gen-og-image.mjs` 從 `tools/og-image.html` 產生（用本機 Chrome、需連網載字型）。其餘 Tier 2、3 未做。

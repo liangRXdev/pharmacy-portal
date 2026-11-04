@@ -77,6 +77,11 @@ try {
     const container = document.querySelector('#world'); container.hidden = false;
     const catalog = await (await fetch('/tools.json')).json();
     const runtimeErrors = [], wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const until = async (condition, timeout) => {
+      const end = performance.now() + timeout;
+      while (!condition() && performance.now() < end) await wait(25);
+      return condition();
+    };
     const world = createWorld({ container, ...catalog, onSelectCategory() {}, onSelectTool() {},
       onJourneyState: state => events.push(state), onError: error => runtimeErrors.push(error.message) });
     try {
@@ -93,8 +98,11 @@ try {
       check(eq(paused.position, world.getJourneyState().position), 'hidden-page pause holds position');
       world.focusCategory('ebm'); const switched = world.getJourneyState();
       check(eq(paused.position, switched.position) && switched.destination === 'ebm', 'runtime retarget preserves actual position');
-      world.setPaused(false); await wait(300);
-      check(!eq(paused.position, world.getJourneyState().position), 'resume continues from paused position');
+      // 軟體渲染（SwiftShader）下單幀可能超過 100 ms，固定等待 300 ms 不保證跑到第二幀；
+      // 改以條件輪詢，上限 3 秒。
+      world.setPaused(false);
+      const resumed = await until(() => !eq(paused.position, world.getJourneyState().position), 3000);
+      check(resumed, 'resume continues from paused position');
       world.focusCategory('clinical'); world.focusCategory('adr'); world.focusCategory('internal');
       check(world.getJourneyState().destination === 'internal', 'runtime last destination wins');
       world.resetView(); const reset = world.getJourneyState(); await wait(150);

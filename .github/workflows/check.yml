@@ -23,6 +23,9 @@ jobs:
       - name: tools.json 可解析、CSP hash 與 _headers 一致
         run: node tools/check-portal.js
 
+      - name: check-portal 守門力（每個錯誤實作都必須 fail）
+        run: node tests/check-portal-mutations.mjs
+
       - name: gen-seo 產出與 commit 一致
         run: |
           node tools/gen-seo.js
@@ -66,6 +69,9 @@ jobs:
 
       - name: Pharmacy free ground navigation
         run: npm run test:pharmacy:free
+
+      - name: Pharmacy author hub, Escape and history polish
+        run: npm run test:pharmacy:polish
 
       - name: Service worker cache ownership
         run: node tools/check-sw-cache-scope.js

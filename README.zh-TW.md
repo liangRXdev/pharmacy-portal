@@ -64,7 +64,8 @@ pharmacy-portal/
 - **設計系統**：MUJI 暖米白（`#F5F0E8` / `#3D7A8A`）、純手寫 CSS、Noto Sans TC
 - **部署平台**：Cloudflare Workers（Git 整合自動部署）
 - **SW 快取越界檢查**：`node tools/check-sw-cache-scope.js`。CacheStorage 是 origin 共用的，`liangrxdev.github.io` 上十幾個工具的 SW 若沒有前綴守衛，更新時會刪光鄰居的離線快取——每個 repo 的測試都只看得見自己，這個不變量只有跨 repo 掃描守得住。**新增 PWA 工具時跑一次**（腳本自動發現 `projects/` 下所有 `sw.js`，不必登錄清單）
-- **CI 檢查**（`.github/workflows/check.yml`；本機可跑 `node tools/check-portal.js`）：`tools.json` 可解析、行內 script sha256 與 `_headers` 一致、`gen-seo` 產出無 diff、shell 變動但 `sw.js` 的 `CACHE` 未升即失敗
+- **CI 檢查**（`.github/workflows/check.yml`；本機可跑 `node tools/check-portal.js`）：`tools.json` 可解析、id 唯一、連結僅 https；行內 script sha256 與 `_headers` 一致；`/` 與 `/pharmacy/*` 實際生效的 CSP 各恰一條且指令不放寬；SW `SHELL` 項目存在且不含 `index.html`；HTML 無 inline event handler；`gen-seo` 產出無 diff；shell 變動但 `sw.js` 的 `CACHE` 未升即失敗（`tools/check-cache-bump.js`，shell 清單取自 `SHELL`）
+- **守門力測試**：`node tests/check-portal-mutations.mjs` 對 check-portal 套用 20 個錯誤實作，每個都必須 fail
 - **安全標頭**：`public/_headers` 提供 CSP + HSTS 等；CSP 的 `script-src` 用行內 script 的 sha256 hash（改 `public/index.html` 內 `<script>` 後需重算，指令見 `_headers` 註解）
 
 ## tools.json Schema
@@ -105,10 +106,12 @@ npm ci
 npm run build:three       # 更新已納入版本控制的 vendor bundle 與 MIT 授權
 npm run check:three       # 逐 byte 驗證可重現性
 node tools/check-portal.js
+npm run test:check-portal # check-portal 守門力（突變測試）
 npx playwright install --with-deps chromium
 npm run test:pharmacy
 npm run test:pharmacy:performance # 閒置零 RAF／繪製／標籤寫入，互動可喚醒
 npm run test:pharmacy:free # 自由繞障、精確選點、手機觸控與 history
+npm run test:pharmacy:polish # 作者 Hub、Escape 與歷史紀錄
 node tools/preview-pharmacy.mjs # 套用 CSP headers 的本機預覽，預設 port 4173
 python3 -m http.server 8000 --directory public
 ```

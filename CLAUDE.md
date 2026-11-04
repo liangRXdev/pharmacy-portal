@@ -12,7 +12,8 @@
 - `public/sw.js` — 只快取入口 shell；外部工具（github.io、GAS）與 Google Fonts 一律走網路。導覽一律以 `./` 為 cache key，**勿把 `index.html` 加回 `SHELL`**（線上 307 → `/`，redirected response 會使導覽失敗）
 - `public/_headers` — Cloudflare 安全標頭，含 CSP
 - `tools/gen-seo.js` — 由 tools.json 產生 SEO 檔案
-- `tools/check-portal.js` + `.github/workflows/check.yml` — CI 守下列三條規則
+- `tools/check-portal.js` + `tools/check-cache-bump.js` + `.github/workflows/check.yml` — CI 守下列三條規則與 CSP 指令白名單
+- `tests/check-portal-mutations.mjs` — 守門力測試：每個錯誤實作都必須讓 check-portal fail。**新增或修改 check-portal 規則時，同步新增對應突變**
 
 ## 三個會咬人的地方
 

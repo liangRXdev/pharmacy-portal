@@ -9,6 +9,7 @@
  *   3) `/` 與 `/pharmacy/*` 實際生效的 CSP 各恰 1 條，script-src 只含 hash／'self'，
  *      connect-src 等底線指令不得放寬
  *   4) public/sw.js SHELL 每項存在於 public/，且不含 index.html
+ *   5) public/ 下所有 .html 不得有 inline event handler 或 javascript: URL
  *
  * 守門力由 tests/check-portal-mutations.mjs 驗證：新增檢查時一併新增突變。
  *
@@ -168,5 +169,26 @@ try {
   }
   if (failures === before) pass(`sw.js SHELL ${shell.length} 項皆存在且不含 index.html`);
 } catch (e) { fail('sw.js SHELL 檢查：' + e.message); }
+
+// ── 5) HTML 不得有 inline event handler／javascript: URL：
+//       兩條路由的 script-src 都不含 'unsafe-inline'／'unsafe-hashes'，這類寫法上線即被 CSP 擋下且無錯誤提示
+const htmlBefore = failures;
+(function scanHtml(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) { scanHtml(file); continue; }
+    if (!entry.name.endsWith('.html')) continue;
+    const markup = fs.readFileSync(file, 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '<$1>');
+    const rel = path.relative(PUB, file);
+    for (const tag of markup.match(/<[a-z][^>]*>/gi) || []) {
+      const handler = tag.match(/\son[a-z]+\s*=/i);
+      if (handler) fail(`${rel} 含 inline event handler（${handler[0].trim()}…），會被 CSP 擋下；改用 addEventListener`);
+      if (/\s(href|src|action|formaction)\s*=\s*["']?\s*javascript:/i.test(tag)) fail(`${rel} 含 javascript: URL`);
+    }
+  }
+})(PUB);
+if (failures === htmlBefore) pass('HTML 無 inline event handler／javascript: URL');
 
 process.exit(failures ? 1 : 0);

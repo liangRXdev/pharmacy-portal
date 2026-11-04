@@ -3,9 +3,16 @@
  * 用法：node tools/check-portal.js
  *
  * 檢查：
- *   1) public/tools.json 可 JSON.parse，且每個工具的 category 都存在於 categories
+ *   1) public/tools.json 可 JSON.parse，每個工具的 category 都存在於 categories，
+ *      工具與分類 id 唯一，url/repo 為 null 或 https:
  *   2) public/index.html 每段可執行的行內 <script> 之 sha256，與 public/_headers
  *      CSP script-src 的 hash 集合完全一致（缺 → JS 被擋；多 → 殘留舊 hash）
+ *   3) `/` 與 `/pharmacy/*` 實際生效的 CSP 各恰 1 條，script-src 只含 hash／'self'，
+ *      connect-src 等底線指令不得放寬
+ *   4) public/sw.js SHELL 每項存在於 public/，且不含 index.html
+ *   5) public/ 下所有 .html 不得有 inline event handler 或 javascript: URL
+ *
+ * 守門力由 tests/check-portal-mutations.mjs 驗證：新增檢查時一併新增突變。
  *
  * 「shell 變動須升 sw.js CACHE」與「gen-seo 產出無 diff」需要 git 歷史，
  * 由 .github/workflows/check.yml 處理。
@@ -25,9 +32,24 @@ try {
   const d = JSON.parse(fs.readFileSync(path.join(PUB, 'tools.json'), 'utf8'));
   const cats = new Set((d.categories || []).map((c) => c.id));
   const bad = (d.tools || []).filter((t) => !cats.has(t.category)).map((t) => t.id);
+  const dup = (list) => list.filter((id, i) => list.indexOf(id) !== i);
+  const dupTools = dup((d.tools || []).map((t) => t.id));
+  const dupCats = dup((d.categories || []).map((c) => c.id));
+  // 首頁 safeUrl 放行 http:，3D 頁只收 https:；資料源統一只允許 https，兩頁行為才一致
+  const badUrl = [];
+  for (const t of d.tools || []) {
+    for (const key of ['url', 'repo']) {
+      if (t[key] == null) continue;
+      let ok = false;
+      try { ok = new URL(t[key]).protocol === 'https:'; } catch { /* 無法解析即不合格 */ }
+      if (!ok) badUrl.push(`${t.id}.${key}`);
+    }
+  }
   if (!Array.isArray(d.tools) || d.tools.length === 0) fail('tools.json 沒有 tools');
   else if (bad.length) fail('tools.json 有未定義的 category：' + bad.join(', '));
-  else pass(`tools.json 可解析（${d.tools.length} 工具，${cats.size} 分類）`);
+  else if (dupTools.length || dupCats.length) fail('tools.json id 重複（hash 路由與 3D 標記會互相覆蓋）：' + [...dupTools, ...dupCats].join(', '));
+  else if (badUrl.length) fail('tools.json url/repo 只允許 null 或 https:：' + badUrl.join(', '));
+  else pass(`tools.json 可解析（${d.tools.length} 工具，${cats.size} 分類，id 唯一、連結皆 https）`);
 } catch (e) {
   fail('tools.json 無法解析：' + e.message);
 }
@@ -44,9 +66,62 @@ for (const m of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/gi)) {
 }
 
 const headers = fs.readFileSync(path.join(PUB, '_headers'), 'utf8');
-const csp = headers.split('\n').find((l) => /^\s*Content-Security-Policy:/i.test(l)) || '';
-const scriptSrc = (csp.match(/script-src([^;]*)/) || [])[1] || '';
-const declared = new Set(scriptSrc.trim().split(/\s+/).filter((s) => s.startsWith("'sha256-")));
+
+// 依 Cloudflare _headers 語意算出某路徑實際收到的標頭：所有符合的規則依序疊加，
+// 同名標頭以多個值並存（CSP 多條 = 瀏覽器取交集），`! Name` 移除先前規則設的值。
+const RULES = [];
+for (const line of headers.split('\n')) {
+  if (!line.trim() || line.trimStart().startsWith('#')) continue;
+  if (!/^\s/.test(line)) RULES.push({ pattern: line.trim(), lines: [] });
+  else if (RULES.length) RULES[RULES.length - 1].lines.push(line.trim());
+}
+function headersFor(url) {
+  const out = {};
+  for (const { pattern, lines } of RULES) {
+    if (!(pattern.endsWith('*') ? url.startsWith(pattern.slice(0, -1)) : url === pattern)) continue;
+    for (const line of lines) {
+      if (line.startsWith('! ')) { delete out[line.slice(2).trim().toLowerCase()]; continue; }
+      const colon = line.indexOf(':');
+      const key = line.slice(0, colon).trim().toLowerCase();
+      (out[key] || (out[key] = [])).push(line.slice(colon + 1).trim());
+    }
+  }
+  return out;
+}
+function directives(policy) {
+  const map = new Map();
+  for (const part of policy.split(';')) {
+    const [name, ...tokens] = part.trim().split(/\s+/);
+    if (name) map.set(name.toLowerCase(), tokens);
+  }
+  return map;
+}
+// 兩條路由共同的 CSP 底線；script-src 各自另驗
+const CSP_BASELINE = {
+  'default-src': ["'self'"],
+  'connect-src': ["'self'"],
+  'base-uri': ["'none'"],
+  'form-action': ["'none'"],
+  'frame-ancestors': ["'none'"],
+  'object-src': ["'none'"],
+};
+function checkPolicy(route, label) {
+  const values = headersFor(route)['content-security-policy'] || [];
+  if (values.length !== 1) { fail(`${label} 應恰有 1 條 CSP，實際 ${values.length} 條（多條會取交集）`); return null; }
+  const policy = directives(values[0]);
+  for (const [name, expected] of Object.entries(CSP_BASELINE)) {
+    const actual = policy.get(name) || [];
+    if (actual.join(' ') !== expected.join(' ')) fail(`${label} CSP ${name} 應為 ${expected.join(' ')}，實際「${actual.join(' ')}」`);
+  }
+  if (/unsafe-eval/.test(values[0]) || values[0].split(/[\s;]+/).some((t) => t.includes('*'))) fail(`${label} CSP 含 unsafe-eval 或萬用字元來源`);
+  return policy;
+}
+
+const rootPolicy = checkPolicy('/', '/');
+const rootScript = rootPolicy?.get('script-src') || [];
+const extra = rootScript.filter((t) => !/^'sha256-[A-Za-z0-9+/=]+'$/.test(t));
+if (extra.length) fail('/ CSP script-src 只允許行內 script 的 sha256 hash，多出：' + extra.join(' '));
+const declared = new Set(rootScript.filter((s) => s.startsWith("'sha256-")));
 
 const missing = [...actual].filter((h) => !declared.has(h));
 const stale = [...declared].filter((h) => !actual.has(h));
@@ -68,11 +143,11 @@ try {
     if (!/\bsrc=["']\.\/main\.js["']/.test(match[1]) || match[2].trim()) fail('pharmacy inline or non-local script');
   }
   if (/type=["']importmap/.test(page)) fail('pharmacy import maps are forbidden');
-  const route = headers.split('/pharmacy/*')[1] || '';
-  const routeBlock = route.split(/\n(?=\/)/)[0];
-  const policy = routeBlock.split('\n').find(line => /^\s*Content-Security-Policy:/i.test(line)) || '';
-  const script = (policy.match(/script-src([^;]*)/) || [])[1] || '';
-  if (routeBlock.indexOf('! Content-Security-Policy') < 0 || routeBlock.indexOf('! Content-Security-Policy') > routeBlock.indexOf('Content-Security-Policy:') || !policy || !script.includes("'self'") || /unsafe-eval|\*/.test(policy) || script.includes("'unsafe-inline'")) fail('pharmacy CSP missing or unsafe');
+  // 以實際生效的標頭驗證：未先 `! Content-Security-Policy` 時會疊成 2 條而 fail
+  for (const route of ['/pharmacy/', '/pharmacy/main.js']) {
+    const script = (checkPolicy(route, route)?.get('script-src') || []).join(' ');
+    if (script !== "'self'") fail(`${route} CSP script-src 應恰為 'self'，實際「${script}」`);
+  }
   function scan(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const file = path.join(dir, entry.name);
@@ -81,6 +156,8 @@ try {
       const source = fs.readFileSync(file, 'utf8');
       if (/<script[^>]+src=["']https?:/i.test(source) || /(?:from\s*|import\s*\(?\s*)["']https?:/i.test(source)) fail('external JS in ' + file);
       if (entry.name.endsWith('.js') && !file.includes(path.sep + 'vendor' + path.sep)) {
+        // 非字面值的動態 import（template literal、變數）無法靜態驗證來源，一律禁止
+        if (/\bimport\s*\(\s*(?!['"])/.test(source)) fail('non-literal dynamic import in ' + file);
         for (const match of source.matchAll(/(?:from\s*|import\s*\(?\s*)["']([^"']+)["']/g)) {
           if (!match[1].startsWith('./')) fail('non-relative pharmacy module ' + match[1]);
           if (!fs.existsSync(path.resolve(path.dirname(file), match[1]))) fail('missing pharmacy module ' + match[1]);
@@ -94,4 +171,42 @@ try {
   if (/pharmacy|three-lite/.test(fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8').match(/const SHELL = \[[\s\S]*?\];/)[0])) fail('3D must not be precached');
   if (!failures) pass('pharmacy route, local modules, CSP isolation and SW shell');
 } catch (error) { fail('pharmacy checks: ' + error.message); }
+// ── 4) SW SHELL：每項都要存在（cache.addAll 任一 404 → SW 安裝失敗、離線失效），
+//       且不得含 index.html（線上 307 → /，redirected response 會使導覽失敗）
+try {
+  const sw = fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8');
+  const block = (sw.match(/const SHELL = \[([\s\S]*?)\];/) || [])[1];
+  if (block == null) throw new Error('找不到 const SHELL = [...]');
+  const shell = [...block.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  const before = failures;
+  if (!shell.includes('./')) fail("sw.js SHELL 缺少入口 './'");
+  for (const entry of shell) {
+    if (/(^|\/)index\.html$/.test(entry)) fail(`sw.js SHELL 不得含 ${entry}（以 './' 為 cache key）`);
+    const file = path.join(PUB, entry === './' ? 'index.html' : entry);
+    if (!file.startsWith(PUB + path.sep) || !fs.existsSync(file)) fail(`sw.js SHELL 項目不存在於 public/：${entry}`);
+  }
+  if (failures === before) pass(`sw.js SHELL ${shell.length} 項皆存在且不含 index.html`);
+} catch (e) { fail('sw.js SHELL 檢查：' + e.message); }
+
+// ── 5) HTML 不得有 inline event handler／javascript: URL：
+//       兩條路由的 script-src 都不含 'unsafe-inline'／'unsafe-hashes'，這類寫法上線即被 CSP 擋下且無錯誤提示
+const htmlBefore = failures;
+(function scanHtml(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) { scanHtml(file); continue; }
+    if (!entry.name.endsWith('.html')) continue;
+    const markup = fs.readFileSync(file, 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '<$1>');
+    const rel = path.relative(PUB, file);
+    for (const tag of markup.match(/<[a-z][^>]*>/gi) || []) {
+      const handler = tag.match(/\son[a-z]+\s*=/i);
+      if (handler) fail(`${rel} 含 inline event handler（${handler[0].trim()}…），會被 CSP 擋下；改用 addEventListener`);
+      if (/\s(href|src|action|formaction)\s*=\s*["']?\s*javascript:/i.test(tag)) fail(`${rel} 含 javascript: URL`);
+    }
+  }
+})(PUB);
+if (failures === htmlBefore) pass('HTML 無 inline event handler／javascript: URL');
+
 process.exit(failures ? 1 : 0);

@@ -17,7 +17,11 @@ function navigate(category, tool, view = 'map') {
   else if (!selectedTool) lastTrigger = document.activeElement;
   const hash = category ? `#/${encodeURIComponent(category)}${tool ? '/' + encodeURIComponent(tool) : ''}` : '';
   const pharmacyPoint = category && category === selectedCategory ? history.state?.pharmacyPoint : undefined;
-  history.pushState({ pharmacyView: view, pharmacyPoint }, '', location.pathname + location.search + hash);
+  // Re-selecting the current view (Escape or 返回全景 at overview, the same zone
+  // again) replaces the entry, so Back still leaves in one step.
+  const current = history.state || {};
+  const unchanged = location.hash === hash && (current.pharmacyView ?? 'map') === view && current.pharmacyPoint === pharmacyPoint;
+  history[unchanged ? 'replaceState' : 'pushState']({ pharmacyView: view, pharmacyPoint }, '', location.pathname + location.search + hash);
   route();
 }
 function journeyChanged(state) {

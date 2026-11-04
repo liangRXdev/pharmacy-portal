@@ -64,7 +64,8 @@ Only `public/` is uploaded as static assets, so `.git/`, `CLAUDE.md`, READMEs an
 - **Design system**: MUJI-style warm off-white (`#F5F0E8` / `#3D7A8A`), hand-written CSS, Noto Sans TC
 - **Hosting**: Cloudflare Workers (automatic deploys via Git integration)
 - **SW cache scope check**: `node tools/check-sw-cache-scope.js`. CacheStorage is shared per origin; if the service workers of the dozen-plus tools on `liangrxdev.github.io` lack a prefix guard, an update wipes the neighbors' offline caches — each repo's tests only see themselves, so this invariant can only be guarded by a cross-repo scan. **Run it whenever you add a PWA tool** (the script auto-discovers every `sw.js` under `projects/`; no registry needed)
-- **CI checks** (`.github/workflows/check.yml`, also `node tools/check-portal.js` locally): `tools.json` parses; inline-script sha256 matches `_headers`; `gen-seo` output has no diff; shell changes without a `sw.js` `CACHE` bump fail
+- **CI checks** (`.github/workflows/check.yml`, also `node tools/check-portal.js` locally): `tools.json` parses, ids are unique and links are https-only; inline-script sha256 matches `_headers`; the effective CSP for `/` and `/pharmacy/*` is exactly one policy with no widened directives; every SW `SHELL` entry exists and `index.html` is not in it; no inline event handlers in HTML; `gen-seo` output has no diff; shell changes without a `sw.js` `CACHE` bump fail (`tools/check-cache-bump.js`, shell list read from `SHELL`)
+- **Guard strength**: `node tests/check-portal-mutations.mjs` applies 20 broken changes to a copy of the site; check-portal must fail on every one
 - **Security headers**: `public/_headers` provides CSP + HSTS etc.; CSP `script-src` uses sha256 hashes of inline scripts (recompute after editing a `<script>` in `public/index.html`; the command is in the `_headers` comments)
 
 ## tools.json Schema

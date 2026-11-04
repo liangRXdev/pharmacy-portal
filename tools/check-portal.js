@@ -8,6 +8,7 @@
  *      CSP script-src 的 hash 集合完全一致（缺 → JS 被擋；多 → 殘留舊 hash）
  *   3) `/` 與 `/pharmacy/*` 實際生效的 CSP 各恰 1 條，script-src 只含 hash／'self'，
  *      connect-src 等底線指令不得放寬
+ *   4) public/sw.js SHELL 每項存在於 public/，且不含 index.html
  *
  * 守門力由 tests/check-portal-mutations.mjs 驗證：新增檢查時一併新增突變。
  *
@@ -151,4 +152,21 @@ try {
   if (/pharmacy|three-lite/.test(fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8').match(/const SHELL = \[[\s\S]*?\];/)[0])) fail('3D must not be precached');
   if (!failures) pass('pharmacy route, local modules, CSP isolation and SW shell');
 } catch (error) { fail('pharmacy checks: ' + error.message); }
+// ── 4) SW SHELL：每項都要存在（cache.addAll 任一 404 → SW 安裝失敗、離線失效），
+//       且不得含 index.html（線上 307 → /，redirected response 會使導覽失敗）
+try {
+  const sw = fs.readFileSync(path.join(PUB, 'sw.js'), 'utf8');
+  const block = (sw.match(/const SHELL = \[([\s\S]*?)\];/) || [])[1];
+  if (block == null) throw new Error('找不到 const SHELL = [...]');
+  const shell = [...block.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  const before = failures;
+  if (!shell.includes('./')) fail("sw.js SHELL 缺少入口 './'");
+  for (const entry of shell) {
+    if (/(^|\/)index\.html$/.test(entry)) fail(`sw.js SHELL 不得含 ${entry}（以 './' 為 cache key）`);
+    const file = path.join(PUB, entry === './' ? 'index.html' : entry);
+    if (!file.startsWith(PUB + path.sep) || !fs.existsSync(file)) fail(`sw.js SHELL 項目不存在於 public/：${entry}`);
+  }
+  if (failures === before) pass(`sw.js SHELL ${shell.length} 項皆存在且不含 index.html`);
+} catch (e) { fail('sw.js SHELL 檢查：' + e.message); }
+
 process.exit(failures ? 1 : 0);

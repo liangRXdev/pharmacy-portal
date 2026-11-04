@@ -3,7 +3,8 @@
  * 用法：node tools/check-portal.js
  *
  * 檢查：
- *   1) public/tools.json 可 JSON.parse，且每個工具的 category 都存在於 categories
+ *   1) public/tools.json 可 JSON.parse，每個工具的 category 都存在於 categories，
+ *      工具與分類 id 唯一，url/repo 為 null 或 https:
  *   2) public/index.html 每段可執行的行內 <script> 之 sha256，與 public/_headers
  *      CSP script-src 的 hash 集合完全一致（缺 → JS 被擋；多 → 殘留舊 hash）
  *   3) `/` 與 `/pharmacy/*` 實際生效的 CSP 各恰 1 條，script-src 只含 hash／'self'，
@@ -31,9 +32,24 @@ try {
   const d = JSON.parse(fs.readFileSync(path.join(PUB, 'tools.json'), 'utf8'));
   const cats = new Set((d.categories || []).map((c) => c.id));
   const bad = (d.tools || []).filter((t) => !cats.has(t.category)).map((t) => t.id);
+  const dup = (list) => list.filter((id, i) => list.indexOf(id) !== i);
+  const dupTools = dup((d.tools || []).map((t) => t.id));
+  const dupCats = dup((d.categories || []).map((c) => c.id));
+  // 首頁 safeUrl 放行 http:，3D 頁只收 https:；資料源統一只允許 https，兩頁行為才一致
+  const badUrl = [];
+  for (const t of d.tools || []) {
+    for (const key of ['url', 'repo']) {
+      if (t[key] == null) continue;
+      let ok = false;
+      try { ok = new URL(t[key]).protocol === 'https:'; } catch { /* 無法解析即不合格 */ }
+      if (!ok) badUrl.push(`${t.id}.${key}`);
+    }
+  }
   if (!Array.isArray(d.tools) || d.tools.length === 0) fail('tools.json 沒有 tools');
   else if (bad.length) fail('tools.json 有未定義的 category：' + bad.join(', '));
-  else pass(`tools.json 可解析（${d.tools.length} 工具，${cats.size} 分類）`);
+  else if (dupTools.length || dupCats.length) fail('tools.json id 重複（hash 路由與 3D 標記會互相覆蓋）：' + [...dupTools, ...dupCats].join(', '));
+  else if (badUrl.length) fail('tools.json url/repo 只允許 null 或 https:：' + badUrl.join(', '));
+  else pass(`tools.json 可解析（${d.tools.length} 工具，${cats.size} 分類，id 唯一、連結皆 https）`);
 } catch (e) {
   fail('tools.json 無法解析：' + e.message);
 }

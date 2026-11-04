@@ -12,6 +12,10 @@ try{
   assert.equal(await page.locator('#scene-title').textContent(),'選擇工作區開始探索');
   assert.equal(await page.locator('#scene-help').textContent(),'藥師會帶你前往，抵達後即可查看工具。');
   assert.equal(await page.locator('#scene-secondary').textContent(),'也可以點選地面自由移動。');
+  const historyAtOverview=await page.evaluate(()=>history.length);
+  for(let i=0;i<3;i++)await page.keyboard.press('Escape');
+  await page.locator('#overview').click();
+  assert.equal(await page.evaluate(()=>history.length),historyAtOverview,'Escape/返回全景 at overview must not add history entries');
   await page.locator('#explore').focus();await page.keyboard.press('Enter');
   await page.waitForSelector('#world[data-travel="moving"]');assert(await page.locator('#detail').isHidden(),'author information waits until arrival');
   await page.waitForSelector('#detail[data-content="author"]:not([hidden])');await page.waitForTimeout(850);

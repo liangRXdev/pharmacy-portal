@@ -156,6 +156,8 @@ try {
       const source = fs.readFileSync(file, 'utf8');
       if (/<script[^>]+src=["']https?:/i.test(source) || /(?:from\s*|import\s*\(?\s*)["']https?:/i.test(source)) fail('external JS in ' + file);
       if (entry.name.endsWith('.js') && !file.includes(path.sep + 'vendor' + path.sep)) {
+        // 非字面值的動態 import（template literal、變數）無法靜態驗證來源，一律禁止
+        if (/\bimport\s*\(\s*(?!['"])/.test(source)) fail('non-literal dynamic import in ' + file);
         for (const match of source.matchAll(/(?:from\s*|import\s*\(?\s*)["']([^"']+)["']/g)) {
           if (!match[1].startsWith('./')) fail('non-relative pharmacy module ' + match[1]);
           if (!fs.existsSync(path.resolve(path.dirname(file), match[1]))) fail('missing pharmacy module ' + match[1]);

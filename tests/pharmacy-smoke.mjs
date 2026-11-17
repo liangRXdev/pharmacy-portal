@@ -102,7 +102,7 @@ try {
   });
   await context.setOffline(true);
   await page.reload();
-  await page.waitForFunction(() => document.querySelectorAll('.tool-card').length === 22);
+  await page.waitForFunction(count => document.querySelectorAll('.tool-card').length === count, catalog.tools.length);
   await context.setOffline(false);
   // Network errors during this deliberate offline check are expected.
   // External font availability is outside this repo; retain all application/CSP errors.
@@ -113,7 +113,7 @@ try {
   await page.goto(base + '/pharmacy/');
   await page.waitForSelector('html[data-world="ready"]');
   assert.equal(await page.locator('#categories button').count(), 6);
-  assert.equal(await page.locator('#tools button').count(), 22);
+  assert.equal(await page.locator('#tools button').count(), catalog.tools.length);
   assert(await page.locator('#backup-browser').isHidden(), 'normal mode must not show the fallback directory');
   assert.equal(await page.locator('#world .zone-label:visible').count(), 5);
   assert.equal(await page.locator('#world .map-tool:visible').count(), 0);
@@ -419,7 +419,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(new URL(page.url()).hash, '');
   assert(await page.locator('#overview').evaluate(node => node === document.activeElement));
-  pass('all 22 tools reachable only through the map, complete details, nonoverlapping labels and keyboard navigation');
+  pass(`all ${catalog.tools.length} tools reachable only through the map, complete details, nonoverlapping labels and keyboard navigation`);
   const cached = await page.evaluate(async () => {
     const keys = await caches.keys();
     const urls = (await Promise.all(keys.map(async key => (await (await caches.open(key)).keys()).map(req => new URL(req.url).pathname)))).flat();
@@ -462,7 +462,7 @@ try {
   await fixture.route('**/pharmacy/world.js', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: 'throw new Error("simulated module failure")' }));
   await fixture.goto(base + '/pharmacy/');
   await fixture.waitForSelector('html[data-world="fallback"]');
-  assert.equal(await fixture.locator('#tools button').count(), 22);
+  assert.equal(await fixture.locator('#tools button').count(), catalog.tools.length);
   await fixture.unroute('**/pharmacy/world.js');
   pass('module failure preserves DOM tool browser');
   await fixture.goto(base + '/pharmacy/');
@@ -529,7 +529,7 @@ try {
   await fixture.evaluate(() => document.querySelector('canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await fixture.waitForSelector('html[data-world="fallback"]');
   assert.equal(await fixture.locator('#world canvas, #world .room-label').count(), 0);
-  assert.equal(await fixture.locator('#tools button').count(), 22);
+  assert.equal(await fixture.locator('#tools button').count(), catalog.tools.length);
   pass('resource disposal, partial-init cleanup, cached-page restoration and context-loss fallback');
   await fixtureContext.close();
   // 1280x900 at 200% browser zoom has a 640x450 CSS viewport.
@@ -584,7 +584,7 @@ try {
   await page.goto(base + '/pharmacy/');
   await page.waitForSelector('html[data-world="ready"]');
   await page.screenshot({ path: 'test-results/pharmacy-desktop.png', fullPage: true });
-  pass('mobile touch access to all 22 map tools, DPR cap, bottom sheet, 44px controls, zero errors/CSP');
+  pass(`mobile touch access to all ${catalog.tools.length} map tools, DPR cap, bottom sheet, 44px controls, zero errors/CSP`);
   assert.deepEqual(allCsp, []);
   console.log(`${checks} smoke groups passed; Android hardware acceptance remains manual.`);
 } finally {

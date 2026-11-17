@@ -20,6 +20,7 @@
 | 臨床計算 | [Vancomycin AUC Calculator](https://liangrxdev.github.io/vanco-auc-calc/) | AUC 導向萬古黴素劑量：經驗起始、雙點反算（Sawchuk-Zaske）、Bayesian AUC |
 | 實證教學 | [Diagnostic Test EBM Calculator](https://liangrxdev.github.io/dx-ebm-calc/) | 概似比(LR)/貝氏更新/Fagan nomogram + 檢驗 LR 速查庫 |
 | 實證教學 | [Treatment Effect EBM Calculator](https://liangrxdev.github.io/tx-ebm-calc/) | ARR/NNT/NNH/RRR + 白話說明 + 百人效益圖 (Cates plot) |
+| 實證教學 | [PICO 檢索語法轉換器](https://liangrxdev.github.io/pico-search-converter/) | PICO 關鍵字轉 PubMed／Embase.com／Ovid MEDLINE 檢索語法，三平台同一 Boolean 結構；已實機驗證 |
 | 實證教學 | [實證評讀練習室](https://liangrxdev.github.io/critical-appraisal-training-tw/) | CASP、RoB 2、GRADE 評讀練習、答案比對與指導者批改 |
 | 藥物安全 | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | 多藥 ADR 嫌疑排序（ROR/PRR） |
 | 藥物安全 | [用藥安全踩雷](https://medication-safety-minesweeper.pages.dev/) | 合成病例訓練辨識具臨床可行動性的用藥問題，於藥品配對矩陣插旗並計分解析 |

@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   invariants:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 不支援 Ubuntu 26.04（ubuntu-latest 自 2026-10 起遷移），先固定 24.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:

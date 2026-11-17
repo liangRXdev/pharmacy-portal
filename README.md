@@ -20,6 +20,7 @@ A portal for clinical pharmacy tools, collecting my own clinical calculators, dr
 | Clinical calculation | [Vancomycin AUC Calculator](https://liangrxdev.github.io/vanco-auc-calc/) | AUC-guided vancomycin dosing: empiric start, two-level (Sawchuk-Zaske), Bayesian AUC |
 | EBM education | [Diagnostic Test EBM Calculator](https://liangrxdev.github.io/dx-ebm-calc/) | Likelihood ratio (LR) / Bayesian update / Fagan nomogram + test LR library |
 | EBM education | [Treatment Effect EBM Calculator](https://liangrxdev.github.io/tx-ebm-calc/) | ARR/NNT/NNH/RRR + plain-language explanation + 100-person Cates plot |
+| EBM education | [PICO Search Converter](https://liangrxdev.github.io/pico-search-converter/) | PICO keywords → PubMed / Embase.com / Ovid MEDLINE search syntax with the same Boolean structure; live-validated on all three platforms |
 | EBM education | [Critical Appraisal Training](https://liangrxdev.github.io/critical-appraisal-training-tw/) | CASP, RoB 2 and GRADE appraisal practice, answer comparison and instructor review |
 | Drug safety | [FAERS Suspect Ranker](https://liangrxdev.github.io/faers-suspect-ranker/) | Ranks suspect drugs for an ADR in polypharmacy (ROR/PRR) |
 | Drug safety | [Medication Safety Minesweeper](https://medication-safety-minesweeper.pages.dev/) | Training on actionable drug-related problems with synthetic cases: flag interactions on a drug-pair matrix, then get scored feedback |

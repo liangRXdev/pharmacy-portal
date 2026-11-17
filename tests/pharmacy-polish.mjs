@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {startPharmacyServer} from '../tools/pharmacy-server.mjs';
+const toolCount=JSON.parse(await readFile('public/tools.json','utf8')).tools.length;
 const server=await startPharmacyServer();let browser;
 try{
  browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{}),args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
@@ -36,7 +37,7 @@ try{
   await page.keyboard.press('Escape');assert(await page.locator('#detail').isHidden());assert(await page.locator('#overview').evaluate(n=>n===document.activeElement));
   await page.locator('#explore').click();await page.waitForSelector('#detail[data-content="author"]:not([hidden])');
   await page.evaluate(()=>document.querySelector('#world canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
-  await page.waitForSelector('html[data-world="fallback"]');assert(await page.locator('#detail').isHidden());assert.equal(await page.locator('#tools button').count(),22);
+  await page.waitForSelector('html[data-world="fallback"]');assert(await page.locator('#detail').isHidden());assert.equal(await page.locator('#tools button').count(),toolCount);
   assert(!requests.some(url=>new URL(url).hostname==='github.com'||url.includes('api.github.com')),'Hub creates no GitHub runtime requests');
   assert.deepEqual(errors,[]);await context.close();console.log('PASS author identity, normal arrival, accessible close/Escape, mobile bounds and context loss',device);
  }

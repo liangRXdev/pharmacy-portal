@@ -3,7 +3,7 @@
     "title": "臨床藥學工具集",
     "subtitle": "梁哲嘉藥師",
     "author": "Liang",
-    "lastUpdated": "2026-10-28"
+    "lastUpdated": "2026-11-17"
   },
   "categories": [
     { "id": "clinical", "label": "臨床計算", "icon": "💊" },
@@ -120,6 +120,18 @@
       "platform": "github-pages",
       "status": "active",
       "tags": ["EBM", "NNT", "absolute-risk-reduction", "Cates-plot"]
+    },
+    {
+      "id": "pico-search-converter",
+      "name": "PICO Search Converter",
+      "nameZh": "PICO檢索語法轉換器",
+      "description": "把PICO關鍵字轉成PubMed、Embase.com、Ovid MEDLINE三種檢索語法，同一組括號與Boolean結構，標示各平台差異；三平台已實機驗證",
+      "category": "ebm",
+      "url": "https://liangrxdev.github.io/pico-search-converter/",
+      "repo": "https://github.com/liangRXdev/pico-search-converter",
+      "platform": "github-pages",
+      "status": "active",
+      "tags": ["education", "literature-search", "PICO", "systematic-review"]
     },
     {
       "id": "critical-appraisal-training-tw",
